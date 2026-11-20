@@ -1,0 +1,192 @@
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Platform, ScrollView, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button, Chip, Field, Row, Tap, Txt, haptic, type IconName } from '@/components/ui';
+import type { Lang, Level, Position } from '@/data/types';
+import { useApp } from '@/store/AppStore';
+import { colors, radius, space } from '@/theme';
+
+const slides: { icon: IconName; title: 'ob1Title' | 'ob2Title' | 'ob3Title'; body: 'ob1Body' | 'ob2Body' | 'ob3Body' }[] = [
+  { icon: 'calendar', title: 'ob1Title', body: 'ob1Body' },
+  { icon: 'people', title: 'ob2Title', body: 'ob2Body' },
+  { icon: 'trophy', title: 'ob3Title', body: 'ob3Body' },
+];
+
+function FadeIn({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(v, { toValue: 1, duration: 260, useNativeDriver: Platform.OS !== 'web' }).start();
+  }, [v]);
+  return (
+    <Animated.View style={[style, { opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }]}>{children}</Animated.View>
+  );
+}
+
+export default function Onboarding() {
+  const { t, state, dispatch, lang } = useApp();
+  const insets = useSafeAreaInsets();
+  // step 0 = language, 1..3 = slides, 4 = profile
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState(state.profile.name);
+  const [phone, setPhone] = useState(state.profile.phone);
+  const [position, setPosition] = useState<Position>(state.profile.position);
+  const [level, setLevel] = useState<Level>(state.profile.level);
+  const [tried, setTried] = useState(false);
+  const go = (n: number) => setStep(n);
+
+  const finish = () => {
+    setTried(true);
+    if (!name.trim()) {
+      haptic.warn();
+      return;
+    }
+    haptic.success();
+    dispatch({ type: 'completeOnboarding', profile: { name: name.trim(), phone, position, level } });
+  };
+
+  const LangOption = ({ value, title, sub }: { value: Lang; title: string; sub: string }) => {
+    const sel = lang === value;
+    return (
+      <Tap
+        onPress={() => dispatch({ type: 'setLang', lang: value })}
+        accessibilityState={{ selected: sel }}
+        style={{
+          borderRadius: radius.lg,
+          padding: space.lg,
+          backgroundColor: sel ? colors.white : 'rgba(255,255,255,0.08)',
+          borderWidth: 1.5,
+          borderColor: sel ? colors.accent : 'rgba(255,255,255,0.18)',
+        }}
+      >
+        <Row justify="space-between">
+          <View>
+            <Txt v="h2" color={sel ? colors.text : colors.white}>
+              {title}
+            </Txt>
+            <Txt v="caption" color={sel ? colors.textMuted : 'rgba(255,255,255,0.7)'}>
+              {sub}
+            </Txt>
+          </View>
+          <Ionicons name={sel ? 'checkmark-circle' : 'ellipse-outline'} size={28} color={sel ? colors.primary : 'rgba(255,255,255,0.5)'} />
+        </Row>
+      </Tap>
+    );
+  };
+
+  if (step === 4) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <ScrollView contentContainerStyle={{ padding: space.xl, paddingTop: insets.top + space.xl, gap: space.xl }} keyboardShouldPersistTaps="handled">
+          <FadeIn key={step} style={{ gap: space.xl }}>
+            <View style={{ gap: 6 }}>
+              <Txt v="display">{t('setupTitle')}</Txt>
+              <Txt v="body" color={colors.textMuted}>
+                {t('setupBody')}
+              </Txt>
+            </View>
+            <Field label={t('yourName')} placeholder={t('namePlaceholder')} value={name} onChangeText={setName} autoFocus returnKeyType="next" error={tried && !name.trim() ? t('required') : undefined} />
+            <Field label={t('phone')} placeholder={t('phonePlaceholder')} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+            <View style={{ gap: space.sm }}>
+              <Txt v="label" color={colors.textMuted}>
+                {t('position')}
+              </Txt>
+              <Row gap={8} wrap>
+                {(['GK', 'DEF', 'MID', 'FWD'] as Position[]).map((p) => (
+                  <Chip key={p} label={t(`pos_${p}`)} selected={position === p} onPress={() => setPosition(p)} />
+                ))}
+              </Row>
+            </View>
+            <View style={{ gap: space.sm }}>
+              <Txt v="label" color={colors.textMuted}>
+                {t('level')}
+              </Txt>
+              <Row gap={8} wrap>
+                {(['beginner', 'intermediate', 'advanced'] as Level[]).map((lv) => (
+                  <Chip key={lv} label={t(`level_${lv}`)} selected={level === lv} onPress={() => setLevel(lv)} />
+                ))}
+              </Row>
+            </View>
+          </FadeIn>
+        </ScrollView>
+        <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.lg, gap: space.sm }}>
+          <Button title={t('getStarted')} icon="football" onPress={finish} />
+        </View>
+      </View>
+    );
+  }
+
+  const slide = step >= 1 ? slides[step - 1] : null;
+  return (
+    <LinearGradient colors={[colors.primary, colors.primaryDark, '#03271C']} style={{ flex: 1 }}>
+      <View style={{ flex: 1, paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.lg, paddingHorizontal: space.xl }}>
+        <Row justify="space-between" style={{ height: 40 }}>
+          <Row gap={8}>
+            <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="football" size={22} color={colors.primaryDark} />
+            </View>
+            <Txt v="h2" color={colors.white}>
+              {t('appName')}
+            </Txt>
+          </Row>
+          {slide && (
+            <Tap onPress={() => go(4)} hitSlop={12}>
+              <Txt v="label" color="rgba(255,255,255,0.8)">
+                {t('skip')}
+              </Txt>
+            </Tap>
+          )}
+        </Row>
+
+        <FadeIn key={step} style={{ flex: 1, justifyContent: 'center', gap: space.xl }}>
+          {step === 0 ? (
+            <>
+              <View style={{ gap: 6 }}>
+                <Txt v="display" color={colors.white}>
+                  {t('tagline')}
+                </Txt>
+                <Txt v="body" color="rgba(255,255,255,0.75)">
+                  اختر لغتك · Choose your language
+                </Txt>
+              </View>
+              <View style={{ gap: space.md }}>
+                <LangOption value="ar" title="العربية" sub="Arabic" />
+                <LangOption value="en" title="English" sub="الإنجليزية" />
+              </View>
+            </>
+          ) : (
+            slide && (
+              <>
+                <View style={{ alignSelf: 'center', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(200,241,105,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={{ width: 120, height: 120, borderRadius: 60, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name={slide.icon} size={56} color={colors.primaryDark} />
+                  </View>
+                </View>
+                <View style={{ gap: space.sm }}>
+                  <Txt v="display" color={colors.white} center>
+                    {t(slide.title)}
+                  </Txt>
+                  <Txt v="body" color="rgba(255,255,255,0.78)" center>
+                    {t(slide.body)}
+                  </Txt>
+                </View>
+              </>
+            )
+          )}
+        </FadeIn>
+
+        <View style={{ gap: space.lg }}>
+          {slide && (
+            <Row gap={6} justify="center">
+              {slides.map((_, i) => (
+                <View key={i} style={{ height: 8, width: i === step - 1 ? 26 : 8, borderRadius: 4, backgroundColor: i === step - 1 ? colors.accent : 'rgba(255,255,255,0.3)' }} />
+              ))}
+            </Row>
+          )}
+          <Button title={t('continue')} kind="accent" icon={undefined} onPress={() => go(step + 1)} />
+        </View>
+      </View>
+    </LinearGradient>
+  );
+}

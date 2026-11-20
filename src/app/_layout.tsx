@@ -1,0 +1,63 @@
+import { Cairo_400Regular, Cairo_500Medium, Cairo_600SemiBold, Cairo_700Bold, Cairo_800ExtraBold, useFonts } from '@expo-google-fonts/cairo';
+import { SplashScreen, Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import React, { useEffect } from 'react';
+import { I18nManager, Platform } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ToastProvider } from '@/components/overlays';
+import { AppProvider, useApp } from '@/store/AppStore';
+import { colors } from '@/theme';
+
+// Layout direction is handled by the app itself (per selected language),
+// so keep the native layout LTR to avoid double-flipping on RTL devices.
+if (Platform.OS !== 'web') {
+  I18nManager.allowRTL(false);
+  I18nManager.forceRTL(false);
+}
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
+function RootNavigator() {
+  const { state } = useApp();
+  const [fontsLoaded] = useFonts({ Cairo_400Regular, Cairo_500Medium, Cairo_600SemiBold, Cairo_700Bold, Cairo_800ExtraBold });
+  const ready = fontsLoaded && state.hydrated;
+
+  useEffect(() => {
+    if (ready) SplashScreen.hideAsync().catch(() => {});
+  }, [ready]);
+
+  if (!ready) return null;
+
+  return (
+    <>
+      <StatusBar style="dark" />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right' }}>
+        <Stack.Protected guard={!state.onboarded}>
+          <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
+        </Stack.Protected>
+        <Stack.Protected guard={state.onboarded}>
+          <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+          <Stack.Screen name="pitch/[id]" />
+          <Stack.Screen name="match/[id]" />
+          <Stack.Screen name="match/create" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="tournament/[id]" />
+          <Stack.Screen name="player/[id]" />
+          <Stack.Screen name="bookings" />
+          <Stack.Screen name="leaderboard" />
+        </Stack.Protected>
+      </Stack>
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <SafeAreaProvider>
+      <AppProvider>
+        <ToastProvider>
+          <RootNavigator />
+        </ToastProvider>
+      </AppProvider>
+    </SafeAreaProvider>
+  );
+}
