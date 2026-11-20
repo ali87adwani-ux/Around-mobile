@@ -32,7 +32,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:preview": "SINGLE_BUNDLE=1 expo export --platform web --output-dir dist-preview && node scripts/build-preview.js dist-preview preview/around.html"
   },
   "private": true
 }
