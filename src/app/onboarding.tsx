@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Image, Platform, ScrollView, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Image, Platform, ScrollView, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Button, Chip, Field, Row, Tap, Txt, haptic, type IconName } from '@/components/ui';
@@ -30,6 +30,9 @@ function FadeIn({ children, style }: { children: React.ReactNode; style?: StyleP
 export default function Onboarding() {
   const { t, state, dispatch, lang, mode, signedIn, signInGuest, signInWithGoogle, signInWithApple, saveProfile, errText, themeName } = useApp();
   const insets = useSafeAreaInsets();
+  const { width: winW } = useWindowDimensions();
+  const artW = Math.min(winW - 48, 340);
+  const artH = artW * 0.705;
   // step 0 = language, 1..3 = slides, 4 = profile, 5 = sign in with Apple / Google (live mode only)
   const [step, setStep] = useState(0);
   const [name, setName] = useState(state.profile.name);
@@ -122,16 +125,26 @@ export default function Onboarding() {
   if (step === 5) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
-        <ScrollView contentContainerStyle={{ padding: space.xl, paddingTop: insets.top + space.xl, gap: space.xl }}>
-          <FadeIn key={step} style={{ gap: space.xl }}>
-            <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="person-circle" size={34} color={colors.primary} />
-            </View>
+        <View style={{ flex: 1, padding: space.xl, paddingTop: insets.top + space.xl, paddingBottom: 0 }}>
+          <FadeIn key={step} style={{ gap: space.md, flex: 1 }}>
             <View style={{ gap: 6 }}>
               <Txt v="display">{t('signInTitle')}</Txt>
               <Txt v="body" color={colors.textMuted}>
                 {t('signInBody')}
               </Txt>
+            </View>
+            {/* Player kicking, behind the wordmark */}
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: artW, alignItems: 'center' }}>
+                <View style={{ position: 'absolute', top: artH * 0.02, left: (artW - artH * 0.98) / 2, width: artH * 0.98, height: artH * 0.98, borderRadius: artH, backgroundColor: themeName === 'dark' ? '#DCEBFA' : '#7CC0F5', opacity: themeName === 'dark' ? 0.92 : 0.16 }} />
+                <Image source={require('../../assets/brand/art/kicker.png')} style={{ width: artW, height: artH }} resizeMode="contain" accessibilityIgnoresInvertColors />
+                <Image
+                  source={themeName === 'dark' ? require('../../assets/brand/lockup-white.png') : require('../../assets/brand/lockup-navy.png')}
+                  style={{ width: 160, height: 97, marginTop: -22 }}
+                  resizeMode="contain"
+                  accessibilityLabel={t('appName')}
+                />
+              </View>
             </View>
             {authError && (
               <Row gap={6}>
@@ -142,14 +155,8 @@ export default function Onboarding() {
               </Row>
             )}
           </FadeIn>
-        </ScrollView>
-        <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.lg, gap: space.md }}>
-          <Image
-            source={themeName === 'dark' ? require('../../assets/brand/lockup-white.png') : require('../../assets/brand/lockup-navy.png')}
-            style={{ width: 180, height: 109, alignSelf: 'center', marginBottom: space.lg }}
-            resizeMode="contain"
-            accessibilityLabel={t('appName')}
-          />
+        </View>
+        <View style={{ padding: space.xl, paddingTop: space.sm, paddingBottom: insets.bottom + space.lg, gap: space.md }}>
           <Button title={t('continueApple')} kind="dark" icon="logo-apple" loading={appleBusy} onPress={apple} />
           <Button title={t('continueGoogle')} kind="ghost" icon="logo-google" loading={googleBusy} onPress={google} />
           {ALLOW_GUEST && (
