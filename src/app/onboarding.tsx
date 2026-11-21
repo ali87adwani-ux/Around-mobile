@@ -26,7 +26,7 @@ function FadeIn({ children, style }: { children: React.ReactNode; style?: StyleP
 }
 
 export default function Onboarding() {
-  const { t, state, dispatch, lang, isRTL } = useApp();
+  const { t, state, dispatch, lang } = useApp();
   const insets = useSafeAreaInsets();
   // step 0 = language, 1..3 = slides, 4 = profile
   const [step, setStep] = useState(0);
@@ -124,12 +124,8 @@ export default function Onboarding() {
       <StatusBar style="light" />
       <View style={{ flex: 1, paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.lg, paddingHorizontal: space.xl }}>
         <Row justify="space-between" style={{ height: 40 }}>
-          <Row gap={8}>
-            <Image source={require('../../assets/brand/logo-mark.png')} style={{ width: 40, height: 40 }} accessibilityLabel={t('appName')} />
-            <Txt v="h2" color={colors.white}>
-              {t('appName')}
-            </Txt>
-          </Row>
+          {/* Wordmark is Arabic in both languages: it is the brand mark. */}
+          <Image source={require('../../assets/brand/wordmark-white.png')} style={{ width: 92, height: 40 }} resizeMode="contain" accessibilityLabel={t('appName')} />
           {slide && (
             <Tap onPress={() => go(4)} hitSlop={12}>
               <Txt v="label" color="rgba(255,255,255,0.8)">
@@ -142,7 +138,7 @@ export default function Onboarding() {
         <FadeIn key={step} style={{ flex: 1, justifyContent: 'center', gap: space.xl }}>
           {step === 0 ? (
             <>
-              <Image source={require('../../assets/brand/logo-mark.png')} style={{ width: 96, height: 96, alignSelf: isRTL ? 'flex-end' : 'flex-start' }} />
+              <Image source={require('../../assets/brand/lockup-white.png')} style={{ width: 200, height: 121, alignSelf: 'center' }} resizeMode="contain" />
               <View style={{ gap: 6 }}>
                 <Txt v="display" color={colors.white}>
                   {t('tagline')}

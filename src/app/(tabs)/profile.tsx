@@ -101,7 +101,7 @@ export default function Profile() {
       </View>
 
       <View style={{ paddingHorizontal: space.lg, gap: space.sm, alignItems: 'center' }}>
-        <Image source={require('../../../assets/brand/logo-mark.png')} style={{ width: 44, height: 44, opacity: 0.9 }} />
+        <Image source={require('../../../assets/brand/app-icon.png')} style={{ width: 48, height: 48 }} accessibilityLabel={t('appName')} />
         <Tap onPress={() => setReset(true)} hitSlop={8}>
           <Txt v="caption" color={colors.danger} center>
             {t('resetApp')}

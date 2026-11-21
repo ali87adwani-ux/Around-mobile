@@ -1,4 +1,4 @@
-<img src="assets/brand/app-icon-preview.png" width="96" alt="" />
+<img src="assets/brand/app-icon.png" width="96" alt="" />
 
 # Al Dawri | الدوري
 
