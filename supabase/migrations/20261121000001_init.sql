@@ -1,7 +1,8 @@
 -- Al Dawri — core schema
 -- Times are stored as timestamptz; opening hours are in Kuwait local time (Asia/Kuwait, UTC+3).
 
-create extension if not exists btree_gist;
+create schema if not exists extensions;
+create extension if not exists btree_gist with schema extensions;
 
 -- ---------------------------------------------------------------- profiles
 create table public.profiles (

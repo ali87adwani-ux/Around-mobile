@@ -200,8 +200,13 @@ begin
   if not found then raise exception 'not_found'; end if;
 end $$;
 
--- Lock down: functions are callable by signed-in users only (pitch_busy is also public).
-revoke execute on all functions in schema public from public, anon;
+-- Lock down: internal helpers are not callable from the API; actions need a signed-in user.
+revoke execute on function public.kw_hour(timestamptz), public.size_multiplier(int), public.off_peak_factor(timestamptz),
+  public._check_slot(public.pitches, timestamptz, numeric, int), public._own_pitch(uuid), public.handle_new_user() from public, anon, authenticated;
+revoke execute on function public.book_pitch(uuid, timestamptz, numeric, int), public.cancel_booking(uuid),
+  public.create_match(uuid, timestamptz, numeric, int, text), public.join_match(uuid), public.leave_match(uuid),
+  public.register_team(uuid, text), public.owner_day(uuid, date), public.owner_block_slot(uuid, timestamptz, numeric),
+  public.owner_unblock(uuid) from public, anon;
 grant execute on function public.pitch_busy(uuid, date) to anon, authenticated;
 grant execute on function public.book_pitch(uuid, timestamptz, numeric, int) to authenticated;
 grant execute on function public.cancel_booking(uuid) to authenticated;
