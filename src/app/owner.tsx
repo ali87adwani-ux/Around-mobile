@@ -288,6 +288,7 @@ const AMENITIES: { key: Amenity; icon: IconName }[] = [
   { key: 'changing', icon: 'shirt-outline' },
   { key: 'balls', icon: 'football-outline' },
   { key: 'wifi', icon: 'wifi-outline' },
+  { key: 'ac', icon: 'snow-outline' },
 ];
 
 function Settings({ pitchId, price, setPrice, savePrice }: { pitchId: string; price: number; setPrice: (fn: (p: number) => number) => void; savePrice: () => Promise<void> }) {

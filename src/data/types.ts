@@ -1,7 +1,18 @@
 export type Lang = 'ar' | 'en';
 export type L10n = { ar: string; en: string };
 
-export type Amenity = 'parking' | 'showers' | 'lights' | 'cafe' | 'changing' | 'balls' | 'wifi';
+export type Amenity = 'parking' | 'showers' | 'lights' | 'cafe' | 'changing' | 'balls' | 'wifi' | 'ac';
+export type Governorate = 'capital' | 'hawalli' | 'farwaniya' | 'ahmadi' | 'jahra' | 'mubarak_alkabeer';
+
+export interface Review {
+  id: string;
+  pitchId: string;
+  userId: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  at: number;
+}
 export type PitchSize = 5 | 7 | 11;
 export type Level = 'beginner' | 'intermediate' | 'advanced';
 export type Position = 'GK' | 'DEF' | 'MID' | 'FWD';
@@ -10,6 +21,7 @@ export interface Pitch {
   id: string;
   ownerId?: string;
   active?: boolean;
+  governorate: Governorate;
   lat?: number;
   lng?: number;
   name: L10n;

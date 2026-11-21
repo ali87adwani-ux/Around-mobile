@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, Share, View } from 'react-native';
+import * as Linking from 'expo-linking';
+import { Linking as RNLinking, ScrollView, Share, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LevelBadge } from '@/components/cards';
 import { ConfirmSheet, useToast } from '@/components/overlays';
@@ -41,8 +42,9 @@ export default function MatchScreen() {
   const date = dateFromOffset(match.dayOffset);
   const when = `${formatDay(date, lang, { today: t('today'), tomorrow: t('tomorrow') })} · ${formatHour(match.hour, lang)} – ${formatHour(match.hour + match.duration, lang)}`;
 
-  const share = () =>
-    Share.share({ message: `${t('appName')} ⚽ ${l(pitch.name)} — ${when} — ${t('spotsLeft', { n: Math.max(left, 0) })}` }).catch(() => {});
+  const shareText = `${t('appName')} ⚽ ${l(pitch.name)} — ${when} — ${t('spotsLeft', { n: Math.max(left, 0) })}\n${Linking.createURL(`match/${match.id}`)}`;
+  const share = () => Share.share({ message: shareText }).catch(() => {});
+  const shareWhatsapp = () => RNLinking.openURL(`https://wa.me/?text=${encodeURIComponent(shareText)}`).catch(share);
 
   const Slot = ({ pid }: { pid?: string }) => {
     if (!pid)
@@ -161,7 +163,7 @@ export default function MatchScreen() {
       <View style={[{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.card, padding: space.lg, paddingBottom: insets.bottom + space.md, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl }, shadow]}>
         {joined ? (
           <Row gap={space.sm}>
-            <Button title={t('inviteFriends')} icon="share-social" onPress={share} style={{ flex: 1 }} />
+            <Button title={t('shareWhatsapp')} icon="logo-whatsapp" onPress={shareWhatsapp} style={{ flex: 1 }} />
             <Button title={t('leave')} kind="danger" onPress={() => setLeaving(true)} style={{ flex: 1 }} />
           </Row>
         ) : (

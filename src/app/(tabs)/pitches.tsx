@@ -4,7 +4,9 @@ import { FlatList, TextInput, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PitchCard } from '@/components/cards';
 import { Chip, EmptyState, HScroll, Row, Tap, Txt, webNoOutline } from '@/components/ui';
-import type { PitchSize } from '@/data/types';
+import type { Governorate, PitchSize } from '@/data/types';
+
+const GOVS: Governorate[] = ['capital', 'hawalli', 'farwaniya', 'ahmadi', 'jahra', 'mubarak_alkabeer'];
 import { useApp } from '@/store/AppStore';
 import { colors, fonts, radius, space } from '@/theme';
 
@@ -18,6 +20,8 @@ export default function Pitches() {
   const [size, setSize] = useState<PitchSize | null>(null);
   const [indoor, setIndoor] = useState(false);
   const [favOnly, setFavOnly] = useState(false);
+  const [gov, setGov] = useState<Governorate | null>(null);
+  const [ac, setAc] = useState(false);
 
   const list = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -25,19 +29,23 @@ export default function Pitches() {
       if (size && !p.sizes.includes(size)) return false;
       if (indoor && !p.indoor) return false;
       if (favOnly && !state.favorites.includes(p.id)) return false;
+      if (gov && p.governorate !== gov) return false;
+      if (ac && !(p.amenities.includes('ac') || p.indoor)) return false;
       if (!query) return true;
       return [p.name.ar, p.name.en, p.area.ar, p.area.en].some((s) => s.toLowerCase().includes(query));
     });
     r = [...r].sort((a, b) => (sort === 'nearest' ? a.distanceKm - b.distanceKm : sort === 'cheapest' ? a.pricePerHour - b.pricePerHour : b.rating - a.rating));
     return r;
-  }, [q, sort, size, indoor, favOnly, pitches, state.favorites]);
+  }, [q, sort, size, indoor, favOnly, gov, ac, pitches, state.favorites]);
 
-  const hasFilters = !!q || !!size || indoor || favOnly;
+  const hasFilters = !!q || !!size || indoor || favOnly || !!gov || ac;
   const clear = () => {
     setQ('');
     setSize(null);
     setIndoor(false);
     setFavOnly(false);
+    setGov(null);
+    setAc(false);
   };
 
   return (
@@ -72,6 +80,13 @@ export default function Pitches() {
             <Chip key={s} label={`${s}×${s}`} selected={size === s} onPress={() => setSize(size === s ? null : s)} />
           ))}
           <Chip label={t('indoor')} icon="home-outline" selected={indoor} onPress={() => setIndoor(!indoor)} />
+          <Chip label={t('acFilter')} icon="snow-outline" selected={ac} onPress={() => setAc(!ac)} />
+        </HScroll>
+        <HScroll gap={8}>
+          <Chip label={t('all')} icon="location-outline" selected={!gov} onPress={() => setGov(null)} />
+          {GOVS.map((g) => (
+            <Chip key={g} label={t(`gov_${g}`)} selected={gov === g} onPress={() => setGov(gov === g ? null : g)} />
+          ))}
         </HScroll>
       </View>
       <FlatList

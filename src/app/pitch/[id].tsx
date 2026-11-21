@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Linking, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { FavButton } from '@/components/cards';
 import { Sheet, useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { Badge, Button, Chip, Divider, HScroll, PitchArt, Row, Tap, Txt, haptic, type IconName } from '@/components/ui';
+import { Badge, Button, Card, Chip, Divider, Field, HScroll, PitchArt, Row, Tap, Txt, haptic, type IconName } from '@/components/ui';
+import { prayerInHour } from '@/lib/prayer';
+import { bookingPrice, isOffPeak } from '@/lib/pricing';
 import type { Amenity, PitchSize } from '@/data/types';
 import { dateFromOffset, formatDay, formatDuration, formatHour, toISODate, weekdayShort } from '@/i18n/format';
 import { useApp } from '@/store/AppStore';
@@ -21,13 +23,17 @@ const amenityIcon: Record<Amenity, IconName> = {
   changing: 'shirt-outline',
   balls: 'football-outline',
   wifi: 'wifi-outline',
+  ac: 'snow-outline',
 };
 
 const sizeMultiplier: Record<PitchSize, number> = { 5: 1, 7: 1.5, 11: 2.4 };
 
 export default function PitchScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t, l, lang, money, getPitch, bookedHours, loadBusy, bookPitch, errText } = useApp();
+  const { t, l, lang, money, getPitch, bookedHours, loadBusy, bookPitch, errText, getReviews, loadReviews, canReview, addReview } = useApp();
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [stars, setStars] = useState(5);
+  const [comment, setComment] = useState('');
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const pitch = getPitch(id);
@@ -45,6 +51,10 @@ export default function PitchScreen() {
   useEffect(() => {
     loadBusy(pitch.id, iso);
   }, [loadBusy, pitch.id, iso]);
+  useEffect(() => {
+    loadReviews(pitch.id);
+  }, [loadReviews, pitch.id]);
+  const reviews = getReviews(pitch.id);
   const booked = useMemo(() => bookedHours(pitch.id, iso), [bookedHours, pitch.id, iso]);
   const nowH = new Date().getHours() + 1;
   const labels = { today: t('today'), tomorrow: t('tomorrow') };
@@ -59,7 +69,8 @@ export default function PitchScreen() {
     return out;
   }, [pitch, duration, booked, dayOff, nowH]);
 
-  const price = Math.round(pitch.pricePerHour * sizeMultiplier[size] * duration * 2) / 2;
+  const { price, full, discounted } = bookingPrice(pitch, size, duration, iso, hour ?? undefined);
+  const anyOffPeak = slots.some(({ h }) => isOffPeak(iso, h));
 
   const confirm = async () => {
     if (hour == null) return;
@@ -118,6 +129,13 @@ export default function PitchScreen() {
               </Row>
             </Row>
           </View>
+
+          {pitch.lat != null && pitch.lng != null && (
+            <Row gap={space.sm}>
+              <Button title={t('googleMaps')} small kind="ghost" icon="navigate-outline" style={{ flex: 1 }} onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${pitch.lat},${pitch.lng}`).catch(() => {})} />
+              <Button title={t('waze')} small kind="ghost" icon="car-outline" style={{ flex: 1 }} onPress={() => Linking.openURL(`https://waze.com/ul?ll=${pitch.lat},${pitch.lng}&navigate=yes`).catch(() => {})} />
+            </Row>
+          )}
 
           {/* Amenities */}
           <View style={{ gap: space.md }}>
@@ -232,7 +250,7 @@ export default function PitchScreen() {
                     accessibilityState={{ selected: sel, disabled: !available }}
                     style={{
                       width: '31.5%',
-                      height: 46,
+                      height: 54,
                       borderRadius: radius.md,
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -244,10 +262,78 @@ export default function PitchScreen() {
                     <Txt v="label" color={sel ? colors.white : available ? colors.text : colors.textFaint} center style={!available ? { textDecorationLine: 'line-through' } : undefined}>
                       {formatHour(h, lang)}
                     </Txt>
+                    {(() => {
+                      const pr = prayerInHour(iso, h);
+                      const off = available && isOffPeak(iso, h);
+                      if (!pr && !off) return null;
+                      return (
+                        <Row gap={4} justify="center">
+                          {off && (
+                            <Txt v="tiny" color={sel ? colors.accent : colors.success} style={{ fontSize: 10, lineHeight: 14 }}>
+                              {t('offPeak')}
+                            </Txt>
+                          )}
+                          {pr && (
+                            <Row gap={2}>
+                              <Ionicons name="moon" size={9} color={sel ? colors.accent : colors.warning} />
+                              <Txt v="tiny" color={sel ? colors.white : colors.textMuted} style={{ fontSize: 10, lineHeight: 14 }}>
+                                {t(`prayer_${pr.name}`)} {formatHour(pr.at, lang).split(' ')[0]}
+                              </Txt>
+                            </Row>
+                          )}
+                        </Row>
+                      );
+                    })()}
                   </Tap>
                 );
               })}
             </Row>
+            {anyOffPeak && (
+              <Row gap={6} align="flex-start" style={{ backgroundColor: colors.successSoft, borderRadius: radius.md, padding: space.sm }}>
+                <Ionicons name="pricetag" size={14} color={colors.success} />
+                <Txt v="tiny" color={colors.success} style={{ flex: 1 }}>
+                  {t('offPeakHint')}
+                </Txt>
+              </Row>
+            )}
+          </View>
+
+          {/* Reviews */}
+          <View style={{ gap: space.md }}>
+            <Row justify="space-between">
+              <Row gap={6}>
+                <Txt v="h3">{t('reviewsTitle')}</Txt>
+                <Ionicons name="star" size={15} color={colors.warning} />
+                <Txt v="label">{pitch.rating.toFixed(1)}</Txt>
+                <Txt v="caption" color={colors.textMuted}>
+                  ({pitch.reviews})
+                </Txt>
+              </Row>
+              {canReview(pitch.id) && <Button title={t('ratePitch')} small kind="secondary" icon="star-outline" onPress={() => setReviewOpen(true)} />}
+            </Row>
+            {reviews.length === 0 ? (
+              <Txt v="caption" color={colors.textMuted}>
+                {t('noReviews')}
+              </Txt>
+            ) : (
+              reviews.slice(0, 5).map((r) => (
+                <Card key={r.id} flat style={{ borderWidth: 1, borderColor: colors.border, gap: 4 }}>
+                  <Row justify="space-between">
+                    <Txt v="bodyStrong">{r.userName || '—'}</Txt>
+                    <Row gap={1}>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <Ionicons key={n} name={n <= r.rating ? 'star' : 'star-outline'} size={13} color={colors.warning} />
+                      ))}
+                    </Row>
+                  </Row>
+                  {!!r.comment && (
+                    <Txt v="caption" color={colors.textMuted}>
+                      {r.comment}
+                    </Txt>
+                  )}
+                </Card>
+              ))
+            )}
           </View>
         </View>
       </ScrollView>
@@ -259,9 +345,16 @@ export default function PitchScreen() {
             <Txt v="tiny" color={colors.textMuted}>
               {hour != null ? `${formatDay(date, lang, labels)} · ${formatHour(hour, lang)}` : t('selectSlot')}
             </Txt>
-            <Txt v="h2" color={colors.primary}>
-              {money(price)}
-            </Txt>
+            <Row gap={6} align="flex-end">
+              <Txt v="h2" color={colors.primary}>
+                {money(price)}
+              </Txt>
+              {discounted && (
+                <Txt v="caption" color={colors.textFaint} style={{ textDecorationLine: 'line-through', marginBottom: 4 }}>
+                  {money(full)}
+                </Txt>
+              )}
+            </Row>
           </View>
           <Button title={t('continue')} disabled={hour == null} onPress={() => setSummary(true)} style={{ flex: 1.3 }} icon="calendar" />
         </Row>
@@ -300,6 +393,31 @@ export default function PitchScreen() {
           </Row>
         </View>
         <Button title={t('bookNow', { price: money(price) })} onPress={confirm} loading={loading} icon="checkmark-circle" />
+      </Sheet>
+
+      {/* Review */}
+      <Sheet visible={reviewOpen} onClose={() => setReviewOpen(false)} title={t('ratePitch')}>
+        <View style={{ gap: space.lg }}>
+          <Row gap={10} justify="center">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Tap key={n} onPress={() => setStars(n)} accessibilityLabel={`${n}`}>
+                <Ionicons name={n <= stars ? 'star' : 'star-outline'} size={38} color={colors.warning} />
+              </Tap>
+            ))}
+          </Row>
+          <Field label={t('yourRating')} placeholder={t('commentPlaceholder')} value={comment} onChangeText={setComment} maxLength={500} />
+          <Button
+            title={t('save')}
+            icon="checkmark-circle"
+            onPress={async () => {
+              const r = await addReview(pitch.id, stars, comment.trim());
+              if (!r.ok) return toast(errText(r.error), 'error');
+              setReviewOpen(false);
+              setComment('');
+              toast(t('reviewSaved'));
+            }}
+          />
+        </View>
       </Sheet>
 
       {/* Success */}

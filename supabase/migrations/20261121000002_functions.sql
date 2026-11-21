@@ -24,6 +24,12 @@ language sql stable security definer set search_path = '' as $$
     and b.ends_at > (p_day::timestamp at time zone 'Asia/Kuwait')
 $$;
 
+-- Off-peak: kick-off before 5 PM, Sunday to Wednesday (Kuwait time) is 20% cheaper.
+create or replace function public.off_peak_factor(ts timestamptz) returns numeric
+language sql immutable set search_path = '' as $$
+  select case when public.kw_hour(ts) < 17 and extract(dow from ts at time zone 'Asia/Kuwait') between 0 and 3 then 0.8 else 1 end
+$$;
+
 create or replace function public._check_slot(p_pitch public.pitches, p_starts timestamptz, p_hours numeric, p_size int)
 returns void language plpgsql set search_path = '' as $$
 declare h numeric := public.kw_hour(p_starts);
@@ -50,7 +56,7 @@ begin
   perform public._check_slot(v_pitch, p_starts, p_hours, p_size);
   insert into public.bookings (pitch_id, user_id, starts_at, ends_at, size, total, status)
   values (p_pitch, v_uid, p_starts, p_starts + make_interval(mins => (p_hours * 60)::int), p_size,
-          round(v_pitch.price_per_hour * public.size_multiplier(p_size) * p_hours * 2) / 2, 'confirmed')
+          round(v_pitch.price_per_hour * public.size_multiplier(p_size) * p_hours * public.off_peak_factor(p_starts) * 2) / 2, 'confirmed')
   returning * into v_row;
   return v_row;
 exception when exclusion_violation then
@@ -93,7 +99,7 @@ begin
   insert into public.matches (pitch_id, booking_id, organizer_id, starts_at, duration_hours, format, level, price_per_player, max_players)
   values (p_pitch, v_booking.id, v_uid, v_booking.starts_at,
           extract(epoch from (v_booking.ends_at - v_booking.starts_at)) / 3600, p_format, p_level,
-          ceil(v_pitch.price_per_hour * public.size_multiplier(p_format) * (extract(epoch from (v_booking.ends_at - v_booking.starts_at)) / 3600) / v_max * 4) / 4,
+          ceil(v_booking.total / v_max * 4) / 4,
           v_max)
   returning * into v_match;
   insert into public.match_players (match_id, user_id) values (v_match.id, v_uid);

@@ -54,6 +54,7 @@ export async function fetchPitches(): Promise<Pitch[]> {
     lat: r.lat ?? undefined,
     lng: r.lng ?? undefined,
     active: r.active,
+    governorate: r.governorate,
   }));
 }
 
@@ -301,5 +302,18 @@ export async function ownerUpdatePitch(pitchId: string, p: { openFrom?: number; 
   if (p.amenities !== undefined) row.amenities = p.amenities;
   if (p.price !== undefined) row.price_per_hour = p.price;
   const { error } = await db().from('pitches').update(row).eq('id', pitchId);
+  if (error) throw error;
+}
+
+/* ---------- reviews ---------- */
+
+export async function fetchReviews(pitchId: string) {
+  const { data, error } = await db().from('pitch_reviews').select('*, profiles(name)').eq('pitch_id', pitchId).order('created_at', { ascending: false }).limit(30);
+  if (error) throw error;
+  return ((data ?? []) as Record<string, any>[]).map((r) => ({ id: r.id, pitchId: r.pitch_id, userId: r.user_id, userName: r.profiles?.name ?? '', rating: r.rating, comment: r.comment, at: Date.parse(r.created_at) }));
+}
+
+export async function reviewPitch(pitchId: string, rating: number, comment: string) {
+  const { error } = await db().rpc('review_pitch', { p_pitch: pitchId, p_rating: rating, p_comment: comment });
   if (error) throw error;
 }

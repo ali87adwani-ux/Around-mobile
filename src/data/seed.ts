@@ -5,6 +5,9 @@ export const ME_ID = 'me';
 export const pitches: Pitch[] = [
   {
     id: 'p1',
+    governorate: 'hawalli',
+    lat: 29.3339,
+    lng: 48.0761,
     name: { ar: 'ملعب النخبة', en: 'Elite Arena' },
     area: { ar: 'السالمية', en: 'Salmiya' },
     address: { ar: 'شارع البلاجات، قطعة 12', en: 'Gulf Road, Block 12' },
@@ -22,6 +25,9 @@ export const pitches: Pitch[] = [
   },
   {
     id: 'p2',
+    governorate: 'hawalli',
+    lat: 29.3375,
+    lng: 48.0286,
     name: { ar: 'ملعب الفريج', en: 'Freej Pitch' },
     area: { ar: 'حولي', en: 'Hawalli' },
     address: { ar: 'شارع تونس، قطعة 3', en: 'Tunis St, Block 3' },
@@ -39,6 +45,9 @@ export const pitches: Pitch[] = [
   },
   {
     id: 'p3',
+    governorate: 'hawalli',
+    lat: 29.2747,
+    lng: 48.0658,
     name: { ar: 'القبة الخضراء', en: 'Green Dome' },
     area: { ar: 'مشرف', en: 'Mishref' },
     address: { ar: 'طريق الملك فهد، بجانب أرض المعارض', en: 'King Fahad Rd, by the Fairground' },
@@ -49,13 +58,16 @@ export const pitches: Pitch[] = [
     rating: 4.9,
     reviews: 341,
     distanceKm: 5.8,
-    amenities: ['parking', 'showers', 'lights', 'cafe', 'changing', 'balls', 'wifi'],
+    amenities: ['parking', 'showers', 'lights', 'cafe', 'changing', 'balls', 'wifi', 'ac'],
     openFrom: 10,
     openTo: 24,
     tint: ['#0F5F5C', '#1E9B8F'],
   },
   {
     id: 'p4',
+    governorate: 'hawalli',
+    lat: 29.3172,
+    lng: 48.0306,
     name: { ar: 'ملاعب الأبطال', en: 'Champions Fields' },
     area: { ar: 'الجابرية', en: 'Jabriya' },
     address: { ar: 'شارع 101، قطعة 11', en: 'Street 101, Block 11' },
@@ -73,6 +85,9 @@ export const pitches: Pitch[] = [
   },
   {
     id: 'p5',
+    governorate: 'jahra',
+    lat: 29.3375,
+    lng: 47.6581,
     name: { ar: 'كورة سيتي', en: 'Kora City' },
     area: { ar: 'الجهراء', en: 'Jahra' },
     address: { ar: 'طريق الجهراء، قطعة 5', en: 'Jahra Rd, Block 5' },
@@ -90,6 +105,9 @@ export const pitches: Pitch[] = [
   },
   {
     id: 'p6',
+    governorate: 'capital',
+    lat: 29.3436,
+    lng: 47.9389,
     name: { ar: 'ملعب الواجهة', en: 'Waterfront Pitch' },
     area: { ar: 'الشويخ', en: 'Shuwaikh' },
     address: { ar: 'الشويخ الصناعية، شارع 24', en: 'Shuwaikh Industrial, Street 24' },
@@ -219,4 +237,17 @@ export const tournaments: Tournament[] = [
       { id: 'f9', homeId: 'l', awayId: 'n', dayOffset: -33, hour: 19, score: [4, 0] },
     ],
   },
+];
+
+import type { Review } from './types';
+const rv = (id: string, pitchId: string, userName: string, rating: number, comment: string, daysAgo: number): Review => ({ id, pitchId, userId: id, userName, rating, comment, at: Date.now() - daysAgo * 86400000 });
+export const seedReviews: Review[] = [
+  rv('r1', 'p1', 'فهد المطيري', 5, 'العشب ممتاز والإضاءة قوية، والحجز كان سهل.', 2),
+  rv('r2', 'p1', 'بدر العجمي', 4, 'ملعب حلو بس المواقف زحمة بالويكند.', 6),
+  rv('r3', 'p3', 'خالد الصباح', 5, 'مكيّف ونظيف، أحسن ملعب مغطّى بمشرف.', 1),
+  rv('r4', 'p3', 'ناصر الهاجري', 5, 'الغرف نظيفة والكور متوفرة.', 9),
+  rv('r5', 'p2', 'حمد الكندري', 4, 'سعره مناسب وقريب.', 4),
+  rv('r6', 'p4', 'سالم الرشيدي', 5, 'عشب طبيعي ومساحة كبيرة للـ 11.', 12),
+  rv('r7', 'p5', 'سعود الدوسري', 4, 'زين للعيال بالجهراء.', 3),
+  rv('r8', 'p6', 'محمد القطان', 4, 'إطلالة حلوة والكافيه ممتاز.', 5),
 ];

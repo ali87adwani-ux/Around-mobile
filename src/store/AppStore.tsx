@@ -12,8 +12,8 @@ import { getLocales } from 'expo-localization';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { ME_ID, matches as seedMatches, pitches as seedPitches, players as seedPlayers, tournaments as seedTournaments } from '@/data/seed';
-import type { Booking, Lang, Match, Pitch, Player, Profile, Tournament } from '@/data/types';
+import { ME_ID, seedReviews, matches as seedMatches, pitches as seedPitches, players as seedPlayers, tournaments as seedTournaments } from '@/data/seed';
+import type { Booking, Lang, Match, Pitch, Player, Profile, Review, Tournament } from '@/data/types';
 import { strings, type StringKey } from '@/i18n/strings';
 import { dateFromOffset, formatMoney, toISODate } from '@/i18n/format';
 import * as api from '@/lib/api';
@@ -51,6 +51,7 @@ interface PersistedState {
   demoPitchEdits: Record<string, { openFrom?: number; openTo?: number; amenities?: Pitch['amenities'] }>;
   demoTournamentStatus: Record<string, Tournament['status']>;
   demoTournaments: Tournament[];
+  myReviews: Review[];
 }
 
 interface State extends PersistedState {
@@ -83,6 +84,7 @@ const initial = (): PersistedState => ({
   demoPitchEdits: {},
   demoTournamentStatus: {},
   demoTournaments: [],
+  myReviews: [],
 });
 
 type Action =
@@ -106,6 +108,7 @@ type Action =
   | { type: 'editDemoPitch'; pitchId: string; edits: { openFrom?: number; openTo?: number; amenities?: Pitch['amenities'] } }
   | { type: 'setDemoTournamentStatus'; id: string; status: Tournament['status'] }
   | { type: 'addDemoTournament'; tournament: Tournament }
+  | { type: 'addReview'; review: Review }
   | { type: 'signedOut' }
   | { type: 'reset' };
 
@@ -158,6 +161,8 @@ function reducer(state: State, a: Action): State {
       return { ...state, demoTournamentStatus: { ...state.demoTournamentStatus, [a.id]: a.status } };
     case 'addDemoTournament':
       return { ...state, demoTournaments: [a.tournament, ...state.demoTournaments] };
+    case 'addReview':
+      return { ...state, myReviews: [a.review, ...state.myReviews.filter((r) => r.pitchId !== a.review.pitchId)] };
     case 'signedOut':
       return { ...state, onboarded: false, profile: initial().profile };
     case 'reset':
@@ -236,6 +241,11 @@ interface Ctx {
   ownerUpdatePrice: (pitchId: string, price: number) => Promise<Result>;
   ownerUpdatePitch: (pitchId: string, p: { openFrom?: number; openTo?: number; amenities?: Pitch['amenities'] }) => Promise<Result>;
   ownerReport: (pitchId: string, days: number) => Promise<api.ReportDay[]>;
+  // reviews
+  getReviews: (pitchId: string) => Review[];
+  loadReviews: (pitchId: string) => Promise<void>;
+  canReview: (pitchId: string) => boolean;
+  addReview: (pitchId: string, rating: number, comment: string) => Promise<Result>;
 }
 
 const AppContext = createContext<Ctx | null>(null);
@@ -259,6 +269,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [authChecked, setAuthChecked] = useState(!live);
   const [remote, setRemote] = useState<Remote>({ pitches: [], matches: [], players: [], tournaments: [], bookings: [] });
   const [busy, setBusy] = useState<Record<string, number[]>>({});
+  const [reviewCache, setReviewCache] = useState<Record<string, Review[]>>({});
   const [loading, setLoading] = useState(false);
   const userRef = useRef<string | null>(null);
   userRef.current = userId;
@@ -653,6 +664,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           await api.ownerUnblock(slotId);
           return ok();
         }),
+      getReviews: (pitchId) => (live ? reviewCache[pitchId] ?? [] : [...state.myReviews, ...seedReviews].filter((r) => r.pitchId === pitchId)),
+      loadReviews: async (pitchId) => {
+        if (!live) return;
+        try {
+          const rows = await api.fetchReviews(pitchId);
+          setReviewCache((c) => ({ ...c, [pitchId]: rows }));
+        } catch {}
+      },
+      canReview: (pitchId) => {
+        const now = Date.now();
+        const played = myBookings.some((b) => b.pitchId === pitchId && b.status === 'confirmed' && (!live || new Date(`${b.dateISO}T${String(Math.floor(b.hour)).padStart(2, '0')}:00:00+03:00`).getTime() < now));
+        const playedMatch = allMatches.some((m) => m.pitchId === pitchId && m.dayOffset < 0 && m.playerIds.includes(meId));
+        return played || playedMatch;
+      },
+      addReview: (pitchId, rating, comment) =>
+        guard(async () => {
+          if (live) {
+            await api.reviewPitch(pitchId, rating, comment);
+            const rows = await api.fetchReviews(pitchId);
+            setReviewCache((c) => ({ ...c, [pitchId]: rows }));
+            await refresh();
+            return ok();
+          }
+          dispatch({ type: 'addReview', review: { id: `rv${Date.now()}`, pitchId, userId: meId, userName: state.profile.name, rating, comment, at: Date.now() } });
+          return ok();
+        }),
       ownerUpdatePitch: (pitchId, p) =>
         guard(async () => {
           if (!live) {
@@ -686,7 +723,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return ok();
         }),
     };
-  }, [state, live, userId, role, authChecked, loading, lang, isRTL, t, l, money, errText, meId, me, pitches, allPitches, players, tournaments, allMatches, myBookings, isJoined, bookedHours, loadBusy, refresh, isOwner, ownerPitches]);
+  }, [state, live, reviewCache, userId, role, authChecked, loading, lang, isRTL, t, l, money, errText, meId, me, pitches, allPitches, players, tournaments, allMatches, myBookings, isJoined, bookedHours, loadBusy, refresh, isOwner, ownerPitches]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

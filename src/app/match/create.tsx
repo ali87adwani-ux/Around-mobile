@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '@/components/overlays';
+import { bookingPrice } from '@/lib/pricing';
 import { Button, Chip, HScroll, IconButton, PitchArt, Row, Tap, Txt, haptic } from '@/components/ui';
 import type { Level } from '@/data/types';
 import { dateFromOffset, formatDuration, formatHour, toISODate, weekdayShort } from '@/i18n/format';
@@ -56,7 +57,8 @@ export default function CreateMatch() {
 
   const maxPlayers = format * 2;
   // Round each player's share up to the nearest quarter dinar.
-  const perPlayer = Math.ceil(((pitch.pricePerHour * mult[format] * duration) / maxPlayers) * 4) / 4;
+  const total = bookingPrice(pitch, format, duration, iso, hour ?? undefined).price;
+  const perPlayer = Math.ceil((total / maxPlayers) * 4) / 4;
 
   const [publishing, setPublishing] = useState(false);
   const publish = async () => {
@@ -200,7 +202,7 @@ export default function CreateMatch() {
               {t('priceSplit')}
             </Txt>
             <Txt v="caption" color={colors.textFaint}>
-              {t('priceSplitHint', { pitch: money(pitch.pricePerHour * mult[format] * duration), n: maxPlayers })}
+              {t('priceSplitHint', { pitch: money(total), n: maxPlayers })}
             </Txt>
           </View>
           <Txt v="h2" color={colors.primary}>
