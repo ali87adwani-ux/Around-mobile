@@ -301,6 +301,7 @@ interface Ctx {
   /** Asks for the device location once and sorts pitches by real distance. */
   locate: () => Promise<boolean>;
   hasLocation: boolean;
+  userLoc: Coords | null;
   submitPitch: (p: PitchSubmissionInput) => Promise<Result>;
   withdrawPitch: (pitchId: string) => Promise<Result>;
   /** Demo only: approve / reject a listing from the admin dashboard. */
@@ -876,6 +877,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }),
       myListings,
       hasLocation: !!userLoc,
+      userLoc,
       staffPitches: allPitches.filter((p) => staffIds.includes(p.id) && p.ownerId !== meId),
       reloadStaff: async () => setStaffIds(await api.myStaffPitches()),
       locate: async () => {

@@ -5,6 +5,9 @@ import { Linking as RNLinking, ScrollView, Share, Switch, View } from 'react-nat
 import { WEB_URL } from '@/config';
 import { sideLevel, sidesFor } from '@/lib/teams';
 import { matchPhase, matchTimes, splitDuration } from '@/lib/matchPhase';
+import { addToCalendar } from '@/lib/calendar';
+import * as api from '@/lib/api';
+import { ReportSheet } from '@/components/ReportSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LevelBadge } from '@/components/cards';
 import { Stepper } from '@/components/academy';
@@ -23,6 +26,11 @@ export default function MatchScreen() {
   const [inviteOpen, setInviteOpen] = useState(invite === '1');
   const [moving, setMoving] = useState<string | null>(null);
   const [balancing, setBalancing] = useState(false);
+  const [friends, setFriends] = useState<api.Friend[]>([]);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [rateOpen, setRateOpen] = useState(false);
+  const [ratings, setRatings] = useState<Record<string, number>>({});
+  const [reportId, setReportId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState(false);
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -41,6 +49,15 @@ export default function MatchScreen() {
     return () => clearInterval(iv);
   }, []);
   const canInvite = !!match && (match.organizerId === meId || isJoined(match.id));
+  const { mode } = useApp();
+  useEffect(() => {
+    if (mode !== 'live' || !inviteOpen) return;
+    api.myFriends().then((fs) => setFriends(fs.filter((f) => f.status === 'accepted'))).catch(() => {});
+  }, [mode, inviteOpen]);
+  useEffect(() => {
+    if (mode !== 'live' || !rateOpen || !match) return;
+    api.myRatings(match.id).then(setRatings).catch(() => {});
+  }, [mode, rateOpen, match?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!match || !canInvite || code) return;
     if (match.inviteCode) return setCode(match.inviteCode);
@@ -225,6 +242,31 @@ export default function MatchScreen() {
           </PitchArt>
         </View>
 
+        {/* Chat + calendar */}
+        {canInvite && (
+          <Row gap={space.sm}>
+            <Button title={t('gameChat')} icon="chatbubbles" kind="secondary" style={{ flex: 1 }} onPress={() => router.push(`/match/chat/${match.id}`)} />
+            {!isPast && (
+              <Button
+                title={t('addToCalendar')}
+                icon="calendar"
+                kind="secondary"
+                style={{ flex: 1 }}
+                onPress={() =>
+                  addToCalendar({
+                    title: `⚽ ${l(pitch.name)} (${match.format}×${match.format})`,
+                    start,
+                    end,
+                    location: `${l(pitch.area)} — ${l(pitch.address)}`,
+                    details: `${t('appName')} · ${money(match.pricePerPlayer)} ${t('perPlayer')}`,
+                    url: link,
+                  }).catch(() => {})
+                }
+              />
+            )}
+          </Row>
+        )}
+
         {/* Organiser: split the sides */}
         {isOrganizer && upcoming && (
           <Card style={{ gap: space.md }}>
@@ -355,6 +397,9 @@ export default function MatchScreen() {
               <Txt v="caption" color={colors.textMuted}>
                 {t('awaitingResult')}
               </Txt>
+            )}
+            {joined && ids.length > 1 && (
+              <Button title={t('rateSportsmanship')} icon="heart-outline" kind="secondary" small onPress={() => setRateOpen(true)} />
             )}
           </Card>
         )}
@@ -504,6 +549,40 @@ export default function MatchScreen() {
               />
             </Row>
           )}
+          {friends.filter((f) => !ids.includes(f.id)).length > 0 && (
+            <View style={{ gap: space.sm }}>
+              <Txt v="label" color={colors.textMuted}>{t('inviteFromFriends')}</Txt>
+              <Row gap={8} wrap>
+                {friends
+                  .filter((f) => !ids.includes(f.id))
+                  .map((f) => (
+                    <Chip
+                      key={f.id}
+                      label={f.name.split(' ')[0] || t('player')}
+                      icon={picked.includes(f.id) ? 'checkmark-circle' : 'person-outline'}
+                      selected={picked.includes(f.id)}
+                      onPress={() => setPicked(picked.includes(f.id) ? picked.filter((x) => x !== f.id) : [...picked, f.id])}
+                    />
+                  ))}
+              </Row>
+              {picked.length > 0 && (
+                <Button
+                  title={t('sendInvites', { n: picked.length })}
+                  icon="paper-plane"
+                  small
+                  onPress={async () => {
+                    try {
+                      const n = await api.inviteFriendsToMatch(match.id, picked);
+                      setPicked([]);
+                      toast(t('teamInvitedN', { n }), 'success');
+                    } catch (e) {
+                      toast(errText(api.errorCode(e)), 'error');
+                    }
+                  }}
+                />
+              )}
+            </View>
+          )}
           {isOrganizer && myTeams.length > 0 && (
             <View style={{ gap: space.sm }}>
               <Txt v="label" color={colors.textMuted}>{t('inviteFixedTeam')}</Txt>
@@ -524,6 +603,50 @@ export default function MatchScreen() {
           )}
         </ScrollView>
       </Sheet>
+
+      <Sheet visible={rateOpen} onClose={() => setRateOpen(false)} title={t('rateSportsmanship')}>
+        <ScrollView style={{ maxHeight: 520 }} contentContainerStyle={{ gap: space.md }}>
+          <Txt v="caption" color={colors.textMuted}>{t('rateHint')}</Txt>
+          {ids
+            .filter((pid) => pid !== meId)
+            .map((pid) => {
+              const pl = getPlayer(pid);
+              const mine = ratings[pid] ?? 0;
+              return (
+                <View key={pid} style={{ gap: 6 }}>
+                  <Row justify="space-between">
+                    <Txt v="bodyStrong" style={{ flex: 1 }} numberOfLines={1}>{l(pl.name)}</Txt>
+                    <IconButton icon="flag-outline" label={t('reportPlayer')} size={30} bg="transparent" color={colors.textFaint} onPress={() => { setRateOpen(false); setReportId(pid); }} />
+                  </Row>
+                  <Row gap={4}>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <IconButton
+                        key={n}
+                        icon={n <= mine ? 'star' : 'star-outline'}
+                        label={`${n}`}
+                        size={36}
+                        bg="transparent"
+                        color={n <= mine ? colors.warning : colors.textFaint}
+                        onPress={async () => {
+                          setRatings((r) => ({ ...r, [pid]: n }));
+                          if (mode !== 'live') return;
+                          try {
+                            await api.ratePlayer(match.id, pid, n);
+                          } catch (e) {
+                            toast(errText(api.errorCode(e)), 'error');
+                          }
+                        }}
+                      />
+                    ))}
+                  </Row>
+                </View>
+              );
+            })}
+          <Button title={t('done')} onPress={() => { setRateOpen(false); toast(t('ratingsSaved'), 'success'); }} />
+        </ScrollView>
+      </Sheet>
+
+      {reportId && <ReportSheet userId={reportId} name={l(getPlayer(reportId).name)} matchId={match.id} visible={!!reportId} onClose={() => setReportId(null)} />}
 
       <Sheet visible={!!moving} onClose={() => setMoving(null)} title={moving ? (moving === meId ? t('you') : l(getPlayer(moving).name)) : undefined}>
         {moving && !isOrganizer && moving === meId && (

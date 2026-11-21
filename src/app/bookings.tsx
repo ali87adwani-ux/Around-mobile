@@ -9,6 +9,8 @@ import { formatDay, formatDuration, formatHour, fromISODate, offsetOf } from '@/
 import { useApp } from '@/store/AppStore';
 import { useInviteFriends } from '@/store/inviteFriends';
 import { bookingPhase } from '@/lib/matchPhase';
+import { addToCalendar } from '@/lib/calendar';
+import { cancelInfo } from '@/lib/policy';
 import { colors, space } from '@/theme';
 
 export default function Bookings() {
@@ -96,6 +98,18 @@ export default function Bookings() {
                   <Button title={t('cancelBooking')} kind="danger" small style={{ flex: 1 }} onPress={() => setCancelId(b.id)} />
                 </Row>
               )}
+              {tab === 'upcoming' && !cancelled && phase === 'upcoming' && (
+                <Button
+                  title={t('addToCalendar')}
+                  icon="calendar-outline"
+                  kind="ghost"
+                  small
+                  onPress={() => {
+                    const start = fromISODate(b.dateISO).getTime() + b.hour * 3600000;
+                    addToCalendar({ title: `⚽ ${l(p.name)} (${b.size}×${b.size})`, start, end: start + b.duration * 3600000, location: `${l(p.area)} — ${l(p.address)}`, details: `${t('appName')} · ${money(b.total)}` }).catch(() => {});
+                  }}
+                />
+              )}
             </Card>
           );
         }}
@@ -104,7 +118,12 @@ export default function Bookings() {
         visible={!!cancelId}
         onClose={() => setCancelId(null)}
         title={t('cancelBookingConfirm')}
-        body={t('cancelBookingSub')}
+        body={(() => {
+          const b = myBookings.find((x) => x.id === cancelId);
+          if (!b) return t('cancelBookingSub');
+          const info = cancelInfo(getPitch(b.pitchId), b);
+          return info.late ? t('lateCancelBody', { hours: info.hours, pct: info.refundPct }) : t('freeCancelBody', { hours: info.hours });
+        })()}
         confirmLabel={t('cancelBooking')}
         cancelLabel={t('back')}
         danger

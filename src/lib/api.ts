@@ -58,6 +58,8 @@ export async function fetchPitches(): Promise<Pitch[]> {
     status: r.status ?? 'approved',
     governorate: r.governorate,
     courts: r.courts ?? 1,
+    cancelHours: r.cancel_hours ?? 6,
+    lateRefundPct: r.late_refund_pct ?? 0,
     photos: (r.photos ?? []).map(photoUrl),
     photoPaths: r.photos ?? [],
     nameEn: r.name_en,
@@ -806,4 +808,141 @@ export async function myStaffPitches(): Promise<string[]> {
   const { data, error } = await db().rpc('my_staff_pitches');
   if (error) return [];
   return ((data ?? []) as (string | { my_staff_pitches: string })[]).map((x) => (typeof x === 'string' ? x : x.my_staff_pitches));
+}
+
+// ---------------------------------------------------------------- cancellation policy
+export async function setPitchPolicy(pitchId: string, cancelHours: number, lateRefundPct: number) {
+  const { error } = await db().rpc('set_pitch_policy', { p_pitch: pitchId, p_cancel_hours: cancelHours, p_late_refund_pct: lateRefundPct });
+  if (error) throw error;
+}
+
+export interface Reliability {
+  bookings: number;
+  no_shows: number;
+  late_cancels: number;
+  conduct: { avg: number | null; count: number };
+}
+export async function bookingReliability(bookingId: string) {
+  const { data, error } = await db().rpc('booking_reliability', { p_booking: bookingId });
+  if (error) throw error;
+  return data as Reliability;
+}
+
+// ---------------------------------------------------------------- sportsmanship & reports
+export async function playerConduct(userId: string) {
+  const { data, error } = await db().rpc('player_conduct', { p_user: userId });
+  if (error) throw error;
+  return data as { avg: number | null; count: number };
+}
+
+export async function myRatings(matchId: string): Promise<Record<string, number>> {
+  const { data, error } = await db().from('player_ratings').select('ratee_id, stars').eq('match_id', matchId);
+  if (error) throw error;
+  return Object.fromEntries((data ?? []).map((r: { ratee_id: string; stars: number }) => [r.ratee_id, r.stars]));
+}
+
+export async function ratePlayer(matchId: string, userId: string, stars: number) {
+  const { error } = await db().rpc('rate_player', { p_match: matchId, p_ratee: userId, p_stars: stars });
+  if (error) throw error;
+}
+
+export type ReportReason = 'abuse' | 'violence' | 'unsporting' | 'no_show' | 'cheating' | 'other';
+export async function reportUser(userId: string, reason: ReportReason, details: string, matchId?: string) {
+  const { error } = await db().rpc('report_user', { p_user: userId, p_reason: reason, p_details: details, p_match: matchId ?? null });
+  if (error) throw error;
+}
+
+export interface UserReport {
+  id: string;
+  reporter_id: string;
+  reporter_name: string;
+  reported_id: string;
+  reported_name: string;
+  match_id: string | null;
+  reason: ReportReason;
+  details: string;
+  status: 'open' | 'reviewed' | 'dismissed';
+  admin_note: string | null;
+  created_at: string;
+  reports_against: number;
+}
+export async function adminReports(status: 'open' | 'all') {
+  const { data, error } = await db().rpc('admin_reports', { p_status: status });
+  if (error) throw error;
+  return (data ?? []) as UserReport[];
+}
+export async function adminResolveReport(id: string, status: 'reviewed' | 'dismissed' | 'open', note: string) {
+  const { error } = await db().rpc('admin_resolve_report', { p_id: id, p_status: status, p_note: note });
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------------- game chat
+export interface ChatMessage {
+  id: string;
+  userId: string;
+  body: string;
+  at: number;
+}
+const mapMsg = (r: { id: string; user_id: string; body: string; created_at: string }): ChatMessage => ({ id: r.id, userId: r.user_id, body: r.body, at: Date.parse(r.created_at) });
+export async function fetchChat(matchId: string) {
+  const { data, error } = await db().from('match_messages').select('id, user_id, body, created_at').eq('match_id', matchId).order('created_at').limit(300);
+  if (error) throw error;
+  return (data ?? []).map(mapMsg);
+}
+export async function sendChat(matchId: string, body: string) {
+  const { error } = await db().from('match_messages').insert({ match_id: matchId, body: body.trim() });
+  if (error) throw error;
+}
+export async function deleteChat(id: string) {
+  const { error } = await db().from('match_messages').delete().eq('id', id);
+  if (error) throw error;
+}
+export function subscribeChat(matchId: string, onMsg: (m: ChatMessage) => void, onDelete: (id: string) => void) {
+  const c = db()
+    .channel(`chat:${matchId}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'match_messages', filter: `match_id=eq.${matchId}` }, (p) => onMsg(mapMsg(p.new as never)))
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'match_messages' }, (p) => onDelete((p.old as { id: string }).id))
+    .subscribe();
+  return () => {
+    db().removeChannel(c);
+  };
+}
+
+// ---------------------------------------------------------------- friends
+export interface Friend {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+  position: string;
+  level: string;
+  status: 'pending' | 'accepted';
+  incoming: boolean;
+}
+export async function myFriends(): Promise<Friend[]> {
+  const { data, error } = await db().rpc('my_friends');
+  if (error) throw error;
+  return (data ?? []).map((r: Record<string, any>) => ({ id: r.user_id, name: r.name, avatarUrl: r.avatar_url ?? undefined, position: r.player_position, level: r.level, status: r.status, incoming: r.incoming }));
+}
+export async function friendRequest(userId: string) {
+  const { data, error } = await db().rpc('friend_request', { p_user: userId });
+  if (error) throw error;
+  return data as 'pending' | 'accepted';
+}
+export async function friendRespond(userId: string, accept: boolean) {
+  const { error } = await db().rpc('friend_respond', { p_user: userId, p_accept: accept });
+  if (error) throw error;
+}
+export async function friendRemove(userId: string) {
+  const { error } = await db().rpc('friend_remove', { p_user: userId });
+  if (error) throw error;
+}
+export async function searchPlayers(q: string) {
+  const { data, error } = await db().from('profiles').select('id, name, avatar_url, position, level').ilike('name', `%${q.replace(/[%_]/g, '')}%`).limit(20);
+  if (error) throw error;
+  return (data ?? []).map((r: Record<string, any>) => ({ id: r.id as string, name: (r.name ?? '') as string, avatarUrl: r.avatar_url ?? undefined, position: r.position as string, level: r.level as string }));
+}
+export async function inviteFriendsToMatch(matchId: string, userIds: string[]) {
+  const { data, error } = await db().rpc('invite_friends_to_match', { p_match: matchId, p_users: userIds });
+  if (error) throw error;
+  return (data as number) ?? 0;
 }

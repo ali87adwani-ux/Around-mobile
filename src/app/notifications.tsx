@@ -53,6 +53,9 @@ const ICONS: Record<string, IconName> = {
   staff_joined: 'id-card',
   match_invite: 'mail-open',
   match_soon: 'alarm',
+  friend_request: 'person-add',
+  friend_accepted: 'people',
+  booking_cancelled_late: 'warning',
   match_ended: 'flag',
   player_switched: 'swap-horizontal',
 };

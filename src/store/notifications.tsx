@@ -27,6 +27,7 @@ const demoSeed = (): AppNotification[] => {
 /** Where a notification leads when tapped. */
 export function notificationRoute(n: { kind?: string; data?: Record<string, string> }): string | null {
   const d = n.data ?? {};
+  if (n.kind === 'friend_request' || n.kind === 'friend_accepted') return n.kind === 'friend_request' ? '/friends?tab=requests' : `/player/${d.user_id}`;
   if (d.match_code) return `/match/join?code=${d.match_code}`;
   if (d.match_id) return `/match/${d.match_id}`;
   if (n.kind === 'payment_claimed') return '/admin';
@@ -36,7 +37,7 @@ export function notificationRoute(n: { kind?: string; data?: Record<string, stri
   if (d.team_id && d.tournament_id) return `/tournament/team/${d.team_id}?t=${d.tournament_id}`;
   if (d.tournament_id) return n.kind === 'team_registered' || n.kind === 'team_withdrew' || n.kind?.startsWith('tournament_') && n.kind !== 'tournament_finished' && n.kind !== 'tournament_cancelled' ? `/tournament/manage/${d.tournament_id}` : `/tournament/${d.tournament_id}`;
   if (d.ticket_id) return `/support/${d.ticket_id}`;
-  if (n.kind === 'booking_new' || n.kind === 'booking_cancelled' || n.kind === 'pitch_approved' || n.kind === 'staff_joined') return '/owner';
+  if (n.kind === 'booking_new' || n.kind === 'booking_cancelled' || n.kind === 'booking_cancelled_late' || n.kind === 'pitch_approved' || n.kind === 'staff_joined') return '/owner';
   if (n.kind === 'pitch_rejected' || n.kind === 'academy_rejected') return '/listings';
   if (n.kind === 'academy_approved') return '/academy-admin';
   if (n.kind === 'booking_cancelled_by_staff') return '/bookings';

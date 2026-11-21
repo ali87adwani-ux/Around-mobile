@@ -129,6 +129,7 @@ export default function Profile() {
           <Divider />
           <MenuItem icon="podium-outline" label={t('leaderboard')} onPress={() => router.push('/leaderboard')} />
           <Divider />
+          <MenuItem icon="people-circle-outline" label={t('myFriends')} onPress={() => router.push('/friends')} />
           <MenuItem icon="shirt-outline" label={t('teamsTitle')} value={eng.teams.length ? String(eng.teams.length) : undefined} onPress={() => router.push('/teams')} />
           <Divider />
           <MenuItem icon="school-outline" label={t('academies')} onPress={() => router.push('/academies')} />

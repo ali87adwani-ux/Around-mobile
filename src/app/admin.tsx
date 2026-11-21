@@ -20,9 +20,10 @@ import { useApp } from '@/store/AppStore';
 import { ticketStatusStyle, useSupport, type TicketStatus } from '@/store/support';
 import { colors, fonts, radius, space } from '@/theme';
 
-type Tab = 'overview' | 'users' | 'pitches' | 'bookings' | 'tournaments' | 'billing' | 'dues' | 'academies' | 'support' | 'announcements';
+type Tab = 'overview' | 'reports' | 'users' | 'pitches' | 'bookings' | 'tournaments' | 'billing' | 'dues' | 'academies' | 'support' | 'announcements';
 const TABS: { key: Tab; label: StringKey; icon: IconName }[] = [
   { key: 'overview', label: 'adminOverview', icon: 'speedometer-outline' },
+  { key: 'reports', label: 'reportsTab', icon: 'flag-outline' },
   { key: 'users', label: 'adminUsers', icon: 'people-outline' },
   { key: 'pitches', label: 'adminPitches', icon: 'football-outline' },
   { key: 'bookings', label: 'adminBookings', icon: 'calendar-outline' },
@@ -61,6 +62,7 @@ export default function AdminDashboard() {
       </View>
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingTop: 0, gap: space.lg, paddingBottom: space.xxl }} keyboardShouldPersistTaps="handled">
         {tab === 'overview' && <Overview />}
+        {tab === 'reports' && <Reports />}
         {tab === 'users' && <Users />}
         {tab === 'pitches' && <Pitches />}
         {tab === 'bookings' && <Bookings />}
@@ -940,5 +942,85 @@ function Announcements() {
         </Card>
       ))}
     </>
+  );
+}
+
+/** Player reports: review, add a note, close or dismiss. */
+function Reports() {
+  const { t, mode, errText, lang } = useApp();
+  const toast = useToast();
+  const [filter, setFilter] = useState<'open' | 'all'>('open');
+  const [rows, setRows] = useState<api.UserReport[] | null>(null);
+  const [open, setOpen] = useState<api.UserReport | null>(null);
+  const [note, setNote] = useState('');
+  const load = useCallback(() => {
+    if (mode !== 'live') return setRows([]);
+    api.adminReports(filter).then(setRows).catch(() => setRows([]));
+  }, [mode, filter]);
+  useEffect(load, [load]);
+
+  const resolve = async (status: 'reviewed' | 'dismissed' | 'open') => {
+    if (!open) return;
+    try {
+      await api.adminResolveReport(open.id, status, note);
+      setOpen(null);
+      toast(t('done'), 'success');
+      load();
+    } catch (e) {
+      toast(errText(api.errorCode(e)), 'error');
+    }
+  };
+
+  return (
+    <View style={{ gap: space.md }}>
+      <Row gap={8}>
+        <Chip label={t('openReports')} selected={filter === 'open'} onPress={() => setFilter('open')} />
+        <Chip label={t('all')} selected={filter === 'all'} onPress={() => setFilter('all')} />
+      </Row>
+      {rows && rows.length === 0 && <EmptyState icon="flag-outline" title={t('noReports')} />}
+      {rows?.map((r) => (
+        <Card key={r.id} onPress={() => { setOpen(r); setNote(r.admin_note ?? ''); }} style={{ gap: 6 }}>
+          <Row justify="space-between" gap={space.sm}>
+            <Txt v="bodyStrong" style={{ flex: 1 }} numberOfLines={1}>{r.reported_name || t('player')}</Txt>
+            <Badge
+              label={t(`reportStatus_${r.status}` as StringKey)}
+              color={r.status === 'open' ? colors.danger : colors.textMuted}
+              bg={r.status === 'open' ? colors.dangerSoft : colors.surfaceMuted}
+            />
+          </Row>
+          <Txt v="caption" color={colors.textMuted}>
+            {t(`reason_${r.reason}` as StringKey)} · {t('reportedBy', { name: r.reporter_name || t('player') })} · {new Date(r.created_at).toLocaleDateString(lang === 'ar' ? 'ar-KW' : 'en')}
+          </Txt>
+          {!!r.details && <Txt v="caption" numberOfLines={2}>{r.details}</Txt>}
+          {r.reports_against > 1 && <Txt v="tiny" color={colors.danger}>{t('reportsAgainst', { n: r.reports_against })}</Txt>}
+        </Card>
+      ))}
+      <Sheet visible={!!open} onClose={() => setOpen(null)} title={open ? open.reported_name || t('player') : undefined}>
+        {open && (
+          <View style={{ gap: space.md }}>
+            <Txt v="bodyStrong">{t(`reason_${open.reason}` as StringKey)}</Txt>
+            {!!open.details && <Txt v="body">{open.details}</Txt>}
+            <Txt v="caption" color={colors.textMuted}>{t('reportedBy', { name: open.reporter_name || t('player') })}</Txt>
+            <Row gap={space.sm}>
+              <Button title={t('viewProfile')} small kind="secondary" icon="person-outline" style={{ flex: 1 }} onPress={() => { setOpen(null); router.push(`/player/${open.reported_id}`); }} />
+              {open.match_id && <Button title={t('gameDetails')} small kind="secondary" icon="football-outline" style={{ flex: 1 }} onPress={() => { setOpen(null); router.push(`/match/${open.match_id}`); }} />}
+            </Row>
+            <TextInput
+              value={note}
+              onChangeText={setNote}
+              placeholder={t('adminNotePh')}
+              placeholderTextColor={colors.textFaint}
+              multiline
+              style={{ minHeight: 70, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: space.md, color: colors.text, fontFamily: fonts.regular, textAlignVertical: 'top', ...webNoOutline }}
+            />
+            <Txt v="tiny" color={colors.textFaint}>{t('reportSuspendHint')}</Txt>
+            <Row gap={space.sm}>
+              <Button title={t('markReviewed')} small icon="checkmark-circle" style={{ flex: 1 }} onPress={() => resolve('reviewed')} />
+              <Button title={t('dismiss')} small kind="ghost" style={{ flex: 1 }} onPress={() => resolve('dismissed')} />
+            </Row>
+          </View>
+        )}
+      </Sheet>
+    </View>
   );
 }

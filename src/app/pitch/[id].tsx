@@ -144,6 +144,27 @@ export default function PitchScreen() {
           )}
 
           <PhotoGallery photos={pitch.photos ?? []} />
+          {/* Cancellation & refund policy */}
+          <View style={{ gap: space.sm }}>
+            <Txt v="h3">{t('policyTitle')}</Txt>
+            <Card flat style={{ gap: 8, backgroundColor: colors.surfaceMuted }}>
+              <Row gap={8} align="flex-start">
+                <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                <Txt v="caption" style={{ flex: 1 }}>{(pitch.cancelHours ?? 6) === 0 ? t('policyFreeAnytime') : t('policyFree', { hours: pitch.cancelHours ?? 6 })}</Txt>
+              </Row>
+              {(pitch.cancelHours ?? 6) > 0 && (
+                <Row gap={8} align="flex-start">
+                  <Ionicons name="time-outline" size={18} color={colors.warning} />
+                  <Txt v="caption" style={{ flex: 1 }}>{t('policyLate', { pct: pitch.lateRefundPct ?? 0 })}</Txt>
+                </Row>
+              )}
+              <Row gap={8} align="flex-start">
+                <Ionicons name="person-remove-outline" size={18} color={colors.danger} />
+                <Txt v="caption" style={{ flex: 1 }}>{t('policyNoShow', { pct: pitch.lateRefundPct ?? 0 })}</Txt>
+              </Row>
+              <Txt v="tiny" color={colors.textFaint}>{t('policyPaidAtPitch')}</Txt>
+            </Card>
+          </View>
           {/* Amenities */}
           <View style={{ gap: space.md }}>
             <Txt v="h3">{t('amenities')}</Txt>
@@ -396,6 +417,12 @@ export default function PitchScreen() {
             <Ionicons name="information-circle" size={18} color={colors.info} />
             <Txt v="caption" color={colors.info} style={{ flex: 1 }}>
               {t('payAtPitch')}
+            </Txt>
+          </Row>
+          <Row gap={8} align="flex-start" style={{ backgroundColor: colors.surfaceMuted, borderRadius: radius.md, padding: space.md }}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={colors.textMuted} />
+            <Txt v="caption" color={colors.textMuted} style={{ flex: 1 }}>
+              {(pitch.cancelHours ?? 6) === 0 ? t('policyFreeAnytime') : `${t('policyFree', { hours: pitch.cancelHours ?? 6 })} ${t('policyLate', { pct: pitch.lateRefundPct ?? 0 })}`}
             </Txt>
           </Row>
         </View>

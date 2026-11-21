@@ -4,7 +4,8 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, TextInput, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PitchCard } from '@/components/cards';
-import { Chip, EmptyState, HScroll, Row, Tap, Txt, webNoOutline } from '@/components/ui';
+import { Chip, EmptyState, HScroll, IconButton, Row, Tap, Txt, webNoOutline } from '@/components/ui';
+import { router } from 'expo-router';
 import type { Governorate, PitchSize } from '@/data/types';
 
 const GOVS: Governorate[] = ['capital', 'hawalli', 'farwaniya', 'ahmadi', 'jahra', 'mubarak_alkabeer'];
@@ -54,7 +55,10 @@ export default function Pitches() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={{ paddingTop: insets.top + space.md, gap: space.md, paddingBottom: space.sm }}>
         <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
-          <Txt v="h1">{t('tabPitches')}</Txt>
+          <Row justify="space-between">
+            <Txt v="h1">{t('tabPitches')}</Txt>
+            <IconButton icon="map-outline" label={t('mapTitle')} onPress={() => router.push('/map')} />
+          </Row>
           <Row gap={8} style={{ backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: space.md, height: 50, borderWidth: 1, borderColor: colors.border }}>
             <Ionicons name="search" size={20} color={colors.textMuted} />
             <TextInput

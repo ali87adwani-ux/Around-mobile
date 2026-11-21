@@ -29,6 +29,10 @@ export interface Pitch {
   nameEn?: string;
   /** Identical courts at this venue (a booking takes any free one). */
   courts?: number;
+  /** Free cancellation until this many hours before kick-off. */
+  cancelHours?: number;
+  /** % of any deposit refunded after that window (or on a no-show). */
+  lateRefundPct?: number;
   governorate: Governorate;
   lat?: number;
   lng?: number;

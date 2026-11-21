@@ -30,6 +30,12 @@ export default function OwnerDashboard() {
   const [busyHour, setBusyHour] = useState<number | null>(null);
   const [version, setVersion] = useState(0);
   const [actionSlot, setActionSlot] = useState<OwnerSlot | null>(null);
+  const [reliability, setReliability] = useState<api.Reliability | null>(null);
+  useEffect(() => {
+    setReliability(null);
+    if (!actionSlot || mode !== 'live') return;
+    api.bookingReliability(actionSlot.id).then(setReliability).catch(() => {});
+  }, [actionSlot, mode]);
   const [reason, setReason] = useState('');
 
   useEffect(() => setPrice(pitch?.pricePerHour ?? 0), [pitch?.id, pitch?.pricePerHour]);
@@ -135,6 +141,7 @@ export default function OwnerDashboard() {
             <Button title={t('editPitchDetails')} kind="secondary" icon="images-outline" onPress={() => router.push(`/listing/edit/pitch/${pitch.id}`)} />
             <Settings pitchId={pitch.id} price={price} setPrice={setPrice} savePrice={savePrice} />
             <CourtsAndStaff pitchId={pitch.id} courts={courts} />
+            <PolicyEditor pitchId={pitch.id} />
           </>
         )}
 
@@ -240,6 +247,14 @@ export default function OwnerDashboard() {
         {actionSlot && (
           <View style={{ gap: space.md }}>
             <Txt v="bodyStrong">{t('bookedBy', { name: actionSlot.playerName || t('player') })} · {formatHour(actionSlot.hour, lang)}</Txt>
+            {reliability && (
+              <Row gap={space.sm} style={{ backgroundColor: colors.surfaceMuted, borderRadius: radius.md, padding: space.sm }}>
+                <Stat icon="calendar-outline" value={reliability.bookings} label={t('bookingsCount')} />
+                <Stat icon="person-remove-outline" value={reliability.no_shows} label={t('noShowsCount')} color={reliability.no_shows ? colors.danger : colors.textMuted} />
+                <Stat icon="time-outline" value={reliability.late_cancels} label={t('lateCancelsCount')} color={reliability.late_cancels ? colors.warning : colors.textMuted} />
+                <Stat icon="heart-outline" value={reliability.conduct.avg != null ? `${reliability.conduct.avg}★` : '—'} label={t('conduct')} color={colors.success} />
+              </Row>
+            )}
             {actionSlot.startsAt && new Date(actionSlot.startsAt).getTime() < Date.now() ? (
               <Button
                 title={actionSlot.noShow ? t('undoNoShow') : t('markNoShow')}
@@ -545,5 +560,63 @@ function CourtsAndStaff({ pitchId, courts }: { pitchId: string; courts: number }
         )}
       </Card>
     </>
+  );
+}
+
+const CANCEL_OPTIONS = [0, 2, 3, 6, 12, 24, 48];
+const REFUND_OPTIONS = [0, 25, 50, 100];
+
+/** Owner sets the free-cancellation window and what is refunded after it (or on a no-show). */
+function PolicyEditor({ pitchId }: { pitchId: string }) {
+  const { t, getPitch, errText, mode, refresh } = useApp();
+  const toast = useToast();
+  const p = getPitch(pitchId);
+  const [hours, setHours] = useState(p.cancelHours ?? 6);
+  const [pct, setPct] = useState(p.lateRefundPct ?? 0);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setHours(p.cancelHours ?? 6);
+    setPct(p.lateRefundPct ?? 0);
+  }, [p.cancelHours, p.lateRefundPct]);
+  const changed = hours !== (p.cancelHours ?? 6) || pct !== (p.lateRefundPct ?? 0);
+  return (
+    <Card style={{ gap: space.sm }}>
+      <Txt v="h3">{t('policyTitle')}</Txt>
+      <Txt v="caption" color={colors.textMuted}>{t('policyOwnerHint')}</Txt>
+      <Txt v="label" color={colors.textMuted}>{t('freeCancelUntil')}</Txt>
+      <Row gap={8} wrap>
+        {CANCEL_OPTIONS.map((h) => (
+          <Chip key={h} label={h === 0 ? t('anytime') : t('hoursBefore', { n: h })} selected={hours === h} onPress={() => setHours(h)} />
+        ))}
+      </Row>
+      {hours > 0 && (
+        <>
+          <Txt v="label" color={colors.textMuted}>{t('lateRefundLabel')}</Txt>
+          <Row gap={8} wrap>
+            {REFUND_OPTIONS.map((v) => (
+              <Chip key={v} label={v === 0 ? t('noRefund') : `${v}%`} selected={pct === v} onPress={() => setPct(v)} />
+            ))}
+          </Row>
+        </>
+      )}
+      {changed && (
+        <Button
+          title={t('save')}
+          loading={busy}
+          onPress={async () => {
+            if (mode !== 'live') return toast(errText('live_only'), 'error');
+            setBusy(true);
+            try {
+              await api.setPitchPolicy(pitchId, hours, pct);
+              await refresh();
+              toast(t('saved'), 'success');
+            } catch (e) {
+              toast(errText(api.errorCode(e)), 'error');
+            }
+            setBusy(false);
+          }}
+        />
+      )}
+    </Card>
   );
 }

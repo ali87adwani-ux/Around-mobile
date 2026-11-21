@@ -101,6 +101,9 @@ function RootNavigator() {
           <Stack.Screen name="tournament/mine" />
           <Stack.Screen name="tournament/join" />
           <Stack.Screen name="match/join" />
+          <Stack.Screen name="match/chat/[id]" />
+          <Stack.Screen name="friends" />
+          <Stack.Screen name="map" />
           <Stack.Screen name="tournament/team/[id]" />
           <Stack.Screen name="tournament/fixture/[id]" />
           <Stack.Screen name="tournament/manage/[id]" />
