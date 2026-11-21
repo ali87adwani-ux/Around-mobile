@@ -249,8 +249,7 @@ export default function Onboarding() {
       <StatusBar style="light" />
       <View style={{ flex: 1, paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.lg, paddingHorizontal: space.xl }}>
         <Row justify="space-between" style={{ height: 40 }}>
-          {/* Wordmark is Arabic in both languages: it is the brand mark. */}
-          <Image source={require('../../assets/brand/wordmark-white.png')} style={{ width: 92, height: 40 }} resizeMode="contain" accessibilityLabel={t('appName')} />
+          <View />
           {slide && (
             <Tap onPress={() => go(4)} hitSlop={12}>
               <Txt v="label" color="rgba(255,255,255,0.8)">
