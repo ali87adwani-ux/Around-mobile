@@ -12,7 +12,7 @@ import { ConfirmSheet, Sheet, useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Button, Card, Chip, Divider, EmptyState, Row, Tap, Txt, webNoOutline } from '@/components/ui';
 import type { MatchEvent } from '@/data/types';
-import { dateFromOffset, formatDay, formatHour } from '@/i18n/format';
+import { dateFromOffset, formatDay, formatHour, toISODate } from '@/i18n/format';
 import * as api from '@/lib/api';
 import { useApp } from '@/store/AppStore';
 import { roundKey, useCup } from '@/store/cups';
@@ -42,6 +42,9 @@ export default function FixtureScreen() {
   const [uploading, setUploading] = useState(false);
   const [clipScorer, setClipScorer] = useState<{ uri: string } | null>(null);
   const [delClip, setDelClip] = useState<string | null>(null);
+  const [move, setMove] = useState(false);
+  const [moveDay, setMoveDay] = useState(1);
+  const [moveHour, setMoveHour] = useState(18);
 
   useEffect(() => {
     api.appSettings().then((s) => setRetention(s.clipRetentionDays)).catch(() => {});
@@ -179,6 +182,7 @@ export default function FixtureScreen() {
           <View style={{ gap: space.sm }}>
             <Button title={played ? t('editResult') : t('enterResult')} icon="create-outline" onPress={openResult} />
             {!played && <Button title={t('recordWalkover')} kind="ghost" icon="flag-outline" onPress={() => setWalkover(true)} />}
+            {!played && <Button title={t('changeTime')} kind="ghost" icon="time-outline" onPress={() => { setMoveDay(Math.max(0, f.dayOffset < 9999 ? f.dayOffset : 1)); setMoveHour(f.hour || 18); setMove(true); }} />}
           </View>
         )}
 
@@ -322,6 +326,31 @@ export default function FixtureScreen() {
           </Row>
           <Button title={t('skipScorer')} kind="ghost" onPress={() => upload(null)} />
         </ScrollView>
+      </Sheet>
+
+      <Sheet visible={move} onClose={() => setMove(false)} title={t('changeTime')}>
+        <View style={{ gap: space.lg }}>
+          <View style={{ gap: 4 }}>
+            <Txt v="label" color={colors.textMuted}>{t('day')}</Txt>
+            <Stepper value={moveDay} onChange={setMoveDay} min={0} max={120} format={(v) => formatDay(dateFromOffset(v), lang, labels)} />
+          </View>
+          <View style={{ gap: 4 }}>
+            <Txt v="label" color={colors.textMuted}>{t('time')}</Txt>
+            <Stepper value={moveHour} onChange={setMoveHour} min={0} max={23.5} step={0.5} format={(v) => formatHour(v, lang)} />
+          </View>
+          <Button
+            title={t('save')}
+            icon="checkmark-circle"
+            onPress={async () => {
+              setMove(false);
+              const d = toISODate(dateFromOffset(moveDay));
+              const hh = String(Math.floor(moveHour)).padStart(2, '0');
+              const mm = moveHour % 1 ? '30' : '00';
+              const r = await act(() => api.rescheduleFixture(f.id, `${d}T${hh}:${mm}:00+03:00`));
+              toast(r.ok ? t('timeChanged') : errText(r.error), r.ok ? 'success' : 'error');
+            }}
+          />
+        </View>
       </Sheet>
 
       <ConfirmSheet

@@ -31,7 +31,7 @@ export function PitchCard({ pitch, compact }: { pitch: Pitch; compact?: boolean 
   const { l, t, money, isRTL } = useApp();
   return (
     <Card onPress={() => router.push(`/pitch/${pitch.id}`)} style={{ padding: 0, width: compact ? 260 : undefined }}>
-      <PitchArt tint={pitch.tint} height={compact ? 120 : 150} radiusSize={radius.lg} style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
+      <PitchArt tint={pitch.tint} photo={pitch.photos?.[0]} height={compact ? 120 : 150} radiusSize={radius.lg} style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
         <Row justify="space-between" align="flex-start" style={{ padding: space.md, flex: 1 }}>
           <Row gap={6}>
             <Badge label={pitch.indoor ? t('indoor') : t('outdoor')} color={colors.white} bg="rgba(0,0,0,0.28)" icon={pitch.indoor ? 'home' : 'sunny'} />
@@ -53,7 +53,7 @@ export function PitchCard({ pitch, compact }: { pitch: Pitch; compact?: boolean 
         <Row gap={4}>
           <Ionicons name="location-outline" size={14} color={colors.textMuted} />
           <Txt v="caption" color={colors.textMuted} numberOfLines={1}>
-            {l(pitch.area)} · {pitch.distanceKm} {t('km')}
+            {l(pitch.area)}{pitch.distanceKm > 0 && pitch.distanceKm < 999 ? ` · ${pitch.distanceKm} ${t('km')}` : ''}
           </Txt>
         </Row>
         <Row gap={2} style={{ marginTop: 2 }}>

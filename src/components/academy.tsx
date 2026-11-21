@@ -13,7 +13,7 @@ export function AcademyCard({ academy, programsCount, compact }: { academy: Acad
   const { l, t } = useApp();
   return (
     <Card onPress={() => router.push(`/academy/${academy.id}`)} style={{ padding: 0, overflow: 'hidden', width: compact ? 260 : undefined }}>
-      <PitchArt tint={academy.tint} height={compact ? 96 : 112} radiusSize={0}>
+      <PitchArt tint={academy.tint} photo={academy.photos?.[0]} height={compact ? 96 : 112} radiusSize={0}>
         <Row justify="space-between" align="flex-start" style={{ padding: space.md, flex: 1 }}>
           <Badge label={`${programsCount} ${t('programs')}`} color={colors.white} bg="rgba(0,0,0,0.28)" icon="school" />
           <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' }}>

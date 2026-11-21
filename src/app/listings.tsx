@@ -85,11 +85,14 @@ export default function Listings() {
               {t('perHour')} · {t('openHours', { from: formatHour(p.openFrom, lang), to: formatHour(p.openTo % 24, lang) })}
             </Txt>
             {hint(p.status)}
-            {(p.status ?? 'approved') === 'approved' ? (
-              <Button title={t('ownerDashboard')} small icon="speedometer-outline" style={{ alignSelf: 'flex-start' }} onPress={() => router.push('/owner')} />
-            ) : (
-              <Button title={t('withdrawListing')} small kind="danger" icon="trash-outline" style={{ alignSelf: 'flex-start' }} onPress={() => setWithdraw({ kind: 'pitch', id: p.id })} />
-            )}
+            <Row gap={space.sm} wrap>
+              <Button title={t('edit')} small kind="secondary" icon="create-outline" onPress={() => router.push(`/listing/edit/pitch/${p.id}`)} />
+              {(p.status ?? 'approved') === 'approved' ? (
+                <Button title={t('ownerDashboard')} small icon="speedometer-outline" onPress={() => router.push('/owner')} />
+              ) : (
+                <Button title={t('withdrawListing')} small kind="danger" icon="trash-outline" onPress={() => setWithdraw({ kind: 'pitch', id: p.id })} />
+              )}
+            </Row>
           </Card>
         ))}
 
@@ -106,11 +109,14 @@ export default function Listings() {
               {l(a.area)} · {t(`gov_${a.governorate}` as StringKey)}
             </Txt>
             {hint(a.status)}
-            {a.status === 'approved' ? (
-              <Button title={t('academyDashboard')} small icon="speedometer-outline" style={{ alignSelf: 'flex-start' }} onPress={() => router.push('/academy-admin')} />
-            ) : (
-              <Button title={t('withdrawListing')} small kind="danger" icon="trash-outline" style={{ alignSelf: 'flex-start' }} onPress={() => setWithdraw({ kind: 'academy', id: a.id })} />
-            )}
+            <Row gap={space.sm} wrap>
+              <Button title={t('edit')} small kind="secondary" icon="create-outline" onPress={() => router.push(`/listing/edit/academy/${a.id}`)} />
+              {a.status === 'approved' ? (
+                <Button title={t('academyDashboard')} small icon="speedometer-outline" onPress={() => router.push('/academy-admin')} />
+              ) : (
+                <Button title={t('withdrawListing')} small kind="danger" icon="trash-outline" onPress={() => setWithdraw({ kind: 'academy', id: a.id })} />
+              )}
+            </Row>
           </Card>
         ))}
 

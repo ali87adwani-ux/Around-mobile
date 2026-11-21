@@ -413,7 +413,16 @@ export function Field({ label, error, ...rest }: TextInputProps & { label: strin
 
 /* ---------- Pitch illustration ---------- */
 
-export function PitchArt({ tint, height = 150, radiusSize = radius.lg, children, style }: { tint: [string, string]; height?: number; radiusSize?: number; children?: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+export function PitchArt({ tint, height = 150, radiusSize = radius.lg, children, style, photo }: { tint: [string, string]; height?: number; radiusSize?: number; children?: React.ReactNode; style?: StyleProp<ViewStyle>; photo?: string }) {
+  // A real photo when the owner uploaded one; otherwise the illustrated pitch.
+  if (photo)
+    return (
+      <View style={[{ height, borderRadius: radiusSize, overflow: 'hidden', backgroundColor: tint[1] }, style]}>
+        <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <LinearGradient colors={['rgba(4,19,47,0.05)', 'rgba(4,19,47,0.65)']} style={StyleSheet.absoluteFill} pointerEvents="none" />
+        {children}
+      </View>
+    );
   return (
     <LinearGradient colors={tint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[{ height, borderRadius: radiusSize, overflow: 'hidden' }, style]}>
       <View style={StyleSheet.absoluteFill} pointerEvents="none">

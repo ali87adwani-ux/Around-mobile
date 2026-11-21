@@ -60,6 +60,14 @@ export default function ManageTournament() {
     return r.ok;
   };
 
+  const [short, setShort] = useState<{ team_id: string; players: number; min_players: number }[] | null>(null);
+  const openGenerate = async () => {
+    try {
+      const rows = await api.rosterCheck(tour.id);
+      if (rows.length) return setShort(rows);
+    } catch {}
+    setGen(true);
+  };
   const generate = async () => {
     if (await run('gen', () => api.generateFixtures(tour.id, toISODate(dateFromOffset(startOff)), days, hour), t('scheduleGenerated'))) {
       setGen(false);
@@ -96,6 +104,9 @@ export default function ManageTournament() {
           )}
         </Card>
 
+        {!['finished', 'cancelled', 'rejected'].includes(tour.status) && (
+          <Button title={t('editTournament')} kind="ghost" icon="create-outline" onPress={() => router.push(`/tournament/edit/${tour.id}`)} />
+        )}
         {tour.status === 'open' && (
           <Button title={t('closeRegistration')} kind="secondary" icon="lock-closed-outline" onPress={() => setConfirm('close')} />
         )}
@@ -104,7 +115,7 @@ export default function ManageTournament() {
             title={tour.fixtures.length ? t('regenerateSchedule') : t('generateSchedule')}
             icon="calendar"
             disabled={approved.length < minTeams}
-            onPress={() => setGen(true)}
+            onPress={openGenerate}
           />
         )}
         {canSchedule && approved.length < minTeams && tour.status !== 'pending' && (
@@ -252,6 +263,17 @@ export default function ManageTournament() {
         </ScrollView>
       </Sheet>
 
+      <ConfirmSheet
+        visible={!!short}
+        onClose={() => setShort(null)}
+        title={t('rosterShortTitle', { list: (short ?? []).map((r) => `${l(teams.find((tm) => tm.id === r.team_id)?.name ?? { ar: '', en: '' })} (${r.players}/${r.min_players})`).join('، ') })}
+        confirmLabel={t('generateAnyway')}
+        cancelLabel={t('back')}
+        onConfirm={() => {
+          setShort(null);
+          setGen(true);
+        }}
+      />
       <ConfirmSheet
         visible={!!confirm}
         onClose={() => setConfirm(null)}

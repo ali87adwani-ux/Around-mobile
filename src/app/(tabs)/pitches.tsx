@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useToast } from '@/components/overlays';
 import React, { useMemo, useState } from 'react';
 import { FlatList, TextInput, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +14,8 @@ import { colors, fonts, radius, space } from '@/theme';
 type Sort = 'nearest' | 'cheapest' | 'top';
 
 export default function Pitches() {
-  const { t, l, pitches, isRTL, state, refresh, mode, loading } = useApp();
+  const { t, l, pitches, isRTL, state, refresh, mode, loading, locate, hasLocation } = useApp();
+  const toast = useToast();
   const insets = useSafeAreaInsets();
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<Sort>('nearest');
@@ -71,7 +73,15 @@ export default function Pitches() {
           </Row>
         </View>
         <HScroll gap={8}>
-          <Chip label={t('sortNearest')} icon="navigate-outline" selected={sort === 'nearest'} onPress={() => setSort('nearest')} />
+          <Chip
+            label={t('sortNearest')}
+            icon="navigate-outline"
+            selected={sort === 'nearest'}
+            onPress={async () => {
+              setSort('nearest');
+              if (!hasLocation && !(await locate())) toast(t('locationDenied'), 'error');
+            }}
+          />
           <Chip label={t('sortCheapest')} icon="pricetag-outline" selected={sort === 'cheapest'} onPress={() => setSort('cheapest')} />
           <Chip label={t('sortTop')} icon="star-outline" selected={sort === 'top'} onPress={() => setSort('top')} />
           <View style={{ width: 1, backgroundColor: colors.border, marginVertical: 6 }} />

@@ -5,6 +5,9 @@ import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stepper } from '@/components/academy';
+import { LocationPicker, PhotoPicker } from '@/components/ListingInputs';
+import * as api from '@/lib/api';
+import type { Coords } from '@/lib/location';
 import { useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Button, Card, Chip, Field, Row, Txt, haptic } from '@/components/ui';
@@ -17,14 +20,16 @@ const GOVS: Governorate[] = ['capital', 'hawalli', 'farwaniya', 'ahmadi', 'jahra
 const AMENITIES: Amenity[] = ['parking', 'lights', 'showers', 'changing', 'ac', 'balls', 'cafe', 'wifi'];
 
 export default function NewListing() {
-  const { t, lang, money, submitPitch, errText } = useApp();
+  const { t, lang, money, submitPitch, errText, mode } = useApp();
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const [name, setName] = useState('');
   const [area, setArea] = useState('');
   const [gov, setGov] = useState<Governorate>('hawalli');
   const [address, setAddress] = useState('');
-  const [mapLink, setMapLink] = useState('');
+  const [nameEn, setNameEn] = useState('');
+  const [loc, setLoc] = useState<Coords | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
   const [price, setPrice] = useState(12);
   const [sizes, setSizes] = useState<PitchSize[]>([5]);
   const [surface, setSurface] = useState<'artificial' | 'natural'>('artificial');
@@ -42,12 +47,6 @@ export default function NewListing() {
 
   const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
-  // Accepts a Google Maps link and pulls the coordinates out of it, when present.
-  const coords = (): { lat?: number; lng?: number } => {
-    const m = mapLink.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/) ?? mapLink.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-    return m ? { lat: Number(m[1]), lng: Number(m[2]) } : {};
-  };
-
   const submit = async () => {
     setTried(true);
     if (!valid) {
@@ -56,11 +55,20 @@ export default function NewListing() {
     }
     setBusy(true);
     const r = await submitPitch({
-      name: name.trim(), area: area.trim(), governorate: gov, address: [address.trim(), mapLink.trim()].filter(Boolean).join(' · '),
-      price, sizes, surface, indoor, amenities, openFrom, openTo, phone: phone.trim(), note: note.trim(), ...coords(),
+      name: name.trim(), area: area.trim(), governorate: gov, address: address.trim(),
+      price, sizes, surface, indoor, amenities, openFrom, openTo, phone: phone.trim(), note: note.trim(), lat: loc?.lat, lng: loc?.lng,
     });
+    if (!r.ok) {
+      setBusy(false);
+      return toast(errText(r.error), 'error');
+    }
+    // Photos and the English name are saved right after the listing is created.
+    if (mode === 'live' && r.id && (photos.length || nameEn.trim())) {
+      await api
+        .updatePitchDetails(r.id, { nameAr: name.trim(), nameEn: nameEn.trim(), area: area.trim(), governorate: gov, address: address.trim(), sizes, surface, indoor, lat: loc?.lat, lng: loc?.lng, photos })
+        .catch(() => toast(t('photosNotSaved'), 'error'));
+    }
     setBusy(false);
-    if (!r.ok) return toast(errText(r.error), 'error');
     haptic.success();
     toast(t('listingSent'), 'success');
     router.replace('/listings');
@@ -83,6 +91,8 @@ export default function NewListing() {
         </Card>
 
         <Field label={t('pitchName')} placeholder={t('pitchNamePh')} value={name} onChangeText={setName} error={tried && name.trim().length < 3 ? t('required') : undefined} />
+        <Field label={t('nameEnOptional')} placeholder="e.g. Salmiya Sports Club" value={nameEn} onChangeText={setNameEn} autoCapitalize="words" />
+        <PhotoPicker paths={photos} onChange={setPhotos} />
         <Field label={t('pitchArea')} placeholder={t('pitchAreaPh')} value={area} onChangeText={setArea} error={tried && area.trim().length < 2 ? t('required') : undefined} />
 
         <View style={{ gap: space.sm }}>
@@ -95,7 +105,7 @@ export default function NewListing() {
         </View>
 
         <Field label={t('pitchAddress')} placeholder={t('pitchAddressPh')} value={address} onChangeText={setAddress} />
-        <Field label={t('mapLink')} placeholder="https://maps.google.com/…" value={mapLink} onChangeText={setMapLink} autoCapitalize="none" keyboardType="url" />
+        <LocationPicker value={loc} onChange={setLoc} />
 
         <View style={{ gap: space.sm }}>
           <Txt v="label" color={colors.textMuted}>{t('pricePerHour')}</Txt>

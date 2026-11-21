@@ -23,6 +23,10 @@ export interface Pitch {
   active?: boolean;
   /** Listings added by owners stay 'pending' until an admin approves them. */
   status?: 'pending' | 'approved' | 'rejected';
+  /** Public photo URLs (first one is the cover) and their storage paths. */
+  photos?: string[];
+  photoPaths?: string[];
+  nameEn?: string;
   governorate: Governorate;
   lat?: number;
   lng?: number;
@@ -125,6 +129,8 @@ export interface Tournament {
   commissionRate?: number;
   rejectReason?: string;
   finishedAt?: string;
+  regDeadline?: string;
+  slotMinutes?: number;
   maxTeams: number;
   entryFee: number;
   prize: number;

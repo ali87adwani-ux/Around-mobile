@@ -11,7 +11,7 @@ const db = () => {
   return supabase;
 };
 
-export type OwnerSlot = { id: string; hour: number; duration: number; status: 'confirmed' | 'blocked'; playerName: string; total: number };
+export type OwnerSlot = { id: string; hour: number; duration: number; status: 'confirmed' | 'blocked'; playerName: string; total: number; noShow?: boolean; startsAt?: string };
 
 const palette = ['#0B2E6F', '#1E56B3', '#C2185B', '#E65100', '#6A1B9A', '#00838F', '#5D4037', '#283593', '#AD1457', '#2E7D32'];
 export function colorFor(id: string) {
@@ -56,6 +56,9 @@ export async function fetchPitches(): Promise<Pitch[]> {
     active: r.active,
     status: r.status ?? 'approved',
     governorate: r.governorate,
+    photos: (r.photos ?? []).map(photoUrl),
+    photoPaths: r.photos ?? [],
+    nameEn: r.name_en,
   }));
 }
 
@@ -170,6 +173,8 @@ export async function fetchTournaments(): Promise<Tournament[]> {
       commissionRate: Number(r.commission_rate ?? 0),
       rejectReason: r.reject_reason ?? '',
       finishedAt: r.finished_at ?? undefined,
+      regDeadline: r.reg_deadline ?? undefined,
+      slotMinutes: r.slot_minutes ?? 60,
       tint: [r.tint[0], r.tint[1] ?? r.tint[0]],
       teams,
       fixtures: (r.fixtures ?? []).map(mapFixture).sort((a: Fixture, b: Fixture) => (a.startsAt ?? '9').localeCompare(b.startsAt ?? '9') || (a.roundNo ?? 0) - (b.roundNo ?? 0) || (a.bracketPos ?? 0) - (b.bracketPos ?? 0)),
@@ -262,7 +267,7 @@ export async function updateProfile(userId: string, p: { name?: string; position
 
 /* ---------- pitch owners ---------- */
 
-export async function ownerDay(pitchId: string, dateISO: string): Promise<OwnerSlot[]> {
+export async function ownerDayV1(pitchId: string, dateISO: string): Promise<OwnerSlot[]> {
   const { data, error } = await db().rpc('owner_day', { p_pitch: pitchId, p_day: dateISO });
   if (error) throw error;
   return ((data ?? []) as Record<string, any>[]).map((r) => ({
@@ -346,13 +351,14 @@ export async function reviewPitch(pitchId: string, rating: number, comment: stri
 
 /* ---------- pitch listings by owners ---------- */
 
-export async function submitPitch(p: PitchSubmissionInput) {
-  const { error } = await db().rpc('submit_pitch', {
+export async function submitPitch(p: PitchSubmissionInput): Promise<string> {
+  const { data, error } = await db().rpc('submit_pitch', {
     p_name: p.name, p_area: p.area, p_governorate: p.governorate, p_address: p.address, p_price: p.price, p_sizes: p.sizes,
     p_surface: p.surface, p_indoor: p.indoor, p_amenities: p.amenities, p_open_from: p.openFrom, p_open_to: p.openTo,
     p_phone: p.phone, p_note: p.note, p_lat: p.lat ?? null, p_lng: p.lng ?? null,
   });
   if (error) throw error;
+  return (data as { id: string }).id;
 }
 
 export async function withdrawPitch(pitchId: string) {
@@ -571,7 +577,7 @@ export interface Subscription {
 
 export interface Invoice {
   id: string;
-  subscriptionId: string;
+  subscriptionId: string | null;
   ownerId: string;
   periodStart: string;
   periodEnd: string;
@@ -604,3 +610,122 @@ export const adminMarkInvoice = (id: string, status: 'paid' | 'unpaid' | 'void')
 export const adminRunBilling = () => rpc<number>('admin_run_billing');
 export const adminSetBilling = (p: { pricePitch: number; priceAcademy: number; trialDays: number; graceDays: number; paymentLink: string }) =>
   rpc('admin_set_billing', { p_price_pitch: p.pricePitch, p_price_academy: p.priceAcademy, p_trial_days: p.trialDays, p_grace_days: p.graceDays, p_link: p.paymentLink });
+
+/* ---------- v5: photos, details, moderation, owner actions, academy tracking ---------- */
+
+export const photoUrl = (path: string) => (path.startsWith('http') ? path : db().storage.from('listing-photos').getPublicUrl(path).data.publicUrl);
+
+/** Uploads a listing photo under the owner's folder and returns its storage path. */
+export async function uploadListingPhoto(ownerId: string, localUri: string): Promise<string> {
+  const res = await fetch(localUri);
+  const body = await res.arrayBuffer();
+  const type = res.headers.get('content-type') || 'image/jpeg';
+  const ext = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : 'jpg';
+  const path = `${ownerId}/${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
+  const { error } = await db().storage.from('listing-photos').upload(path, body, { contentType: type });
+  if (error) throw error;
+  return path;
+}
+
+export async function removeListingPhotos(paths: string[]) {
+  if (paths.length) await db().storage.from('listing-photos').remove(paths);
+}
+
+export interface PitchDetailsInput {
+  nameAr: string;
+  nameEn: string;
+  area: string;
+  governorate: string;
+  address: string;
+  sizes: number[];
+  surface: 'artificial' | 'natural';
+  indoor: boolean;
+  lat?: number;
+  lng?: number;
+  photos: string[];
+}
+export const updatePitchDetails = (id: string, p: PitchDetailsInput) =>
+  rpc('update_pitch_details', {
+    p_pitch: id, p_name_ar: p.nameAr, p_name_en: p.nameEn, p_area: p.area, p_governorate: p.governorate, p_address: p.address, p_sizes: p.sizes,
+    p_surface: p.surface, p_indoor: p.indoor, p_lat: p.lat ?? null, p_lng: p.lng ?? null, p_photos: p.photos,
+  });
+
+export interface AcademyDetailsInput {
+  nameAr: string;
+  nameEn: string;
+  area: string;
+  governorate: string;
+  about: string;
+  lat?: number;
+  lng?: number;
+  photos: string[];
+}
+export const updateAcademyDetails = (id: string, p: AcademyDetailsInput) =>
+  rpc('update_academy_details', {
+    p_academy: id, p_name_ar: p.nameAr, p_name_en: p.nameEn, p_area: p.area, p_governorate: p.governorate, p_about: p.about,
+    p_lat: p.lat ?? null, p_lng: p.lng ?? null, p_photos: p.photos,
+  });
+
+export interface TournamentEdit {
+  nameAr: string;
+  nameEn: string;
+  fee: number;
+  prize: number;
+  prize2: number;
+  rules: string;
+  maxTeams: number;
+  startsOn: string;
+  regDeadline: string | null;
+  minPlayers: number;
+  maxPlayers: number;
+  slotMinutes: number;
+}
+export const updateTournament = (id: string, p: TournamentEdit) =>
+  rpc('update_tournament', {
+    p_t: id, p_name_ar: p.nameAr, p_name_en: p.nameEn, p_fee: p.fee, p_prize: p.prize, p_prize2: p.prize2, p_rules: p.rules, p_max_teams: p.maxTeams,
+    p_starts_on: p.startsOn, p_reg_deadline: p.regDeadline, p_min_players: p.minPlayers, p_max_players: p.maxPlayers, p_slot_minutes: p.slotMinutes,
+  });
+export const rosterCheck = (id: string) => rpc<{ team_id: string; players: number; min_players: number }[]>('tournament_roster_check', { p_t: id });
+export const inviteFixedTeam = (teamId: string, fixedTeamId: string) => rpc<number>('invite_fixed_team', { p_team: teamId, p_fixed: fixedTeamId });
+
+export const ownerCancelBooking = (id: string, reason: string) => rpc('owner_cancel_booking', { p_booking: id, p_reason: reason });
+export const ownerMarkNoShow = (id: string, noShow: boolean) => rpc('owner_mark_no_show', { p_booking: id, p_no_show: noShow });
+
+export async function playerStats(userId: string) {
+  return rpc<{ played: number; noShows: number; mvp: number; bookings: number; goals?: number; cards?: number; tournaments?: number; titles?: number }>('player_stats', { p_user: userId });
+}
+
+export async function adminUsersV2(search: string) {
+  const data = await rpc<{ id: string; suspended: boolean }[]>('admin_users_v2', { p_search: search });
+  return new Map((data ?? []).map((r) => [r.id, r.suspended]));
+}
+export const adminSetSuspended = (userId: string, suspended: boolean) => rpc('admin_set_suspended', { p_user: userId, p_suspended: suspended });
+export const adminDeleteUser = (userId: string) => rpc('admin_delete_user', { p_user: userId });
+
+export async function fetchInvoiceItems(): Promise<{ invoiceId: string; kind: string; labelAr: string; labelEn: string; amount: number }[]> {
+  const { data, error } = await db().from('invoice_items').select('*');
+  if (error) return [];
+  return (data ?? []).map((r: Record<string, any>) => ({ invoiceId: r.invoice_id, kind: r.kind, labelAr: r.label_ar, labelEn: r.label_en, amount: Number(r.amount) }));
+}
+
+export async function academyTracking(enrollmentIds: string[], month: string, day: string) {
+  if (!enrollmentIds.length) return { paid: new Set<string>(), present: new Map<string, boolean>() };
+  const [p, a] = await Promise.all([
+    db().from('enrollment_payments').select('enrollment_id').in('enrollment_id', enrollmentIds).eq('month', month),
+    db().from('attendance').select('enrollment_id, present').in('enrollment_id', enrollmentIds).eq('day', day),
+  ]);
+  return {
+    paid: new Set(((p.data ?? []) as { enrollment_id: string }[]).map((r) => r.enrollment_id)),
+    present: new Map(((a.data ?? []) as { enrollment_id: string; present: boolean }[]).map((r) => [r.enrollment_id, r.present])),
+  };
+}
+export const academyMarkPaid = (enrollmentId: string, month: string, paid: boolean) => rpc('academy_mark_paid', { p_enrollment: enrollmentId, p_month: month, p_paid: paid });
+export const academyMarkAttendance = (enrollmentId: string, day: string, present: boolean | null) => rpc('academy_mark_attendance', { p_enrollment: enrollmentId, p_day: day, p_present: present });
+
+export async function ownerDay(pitchId: string, dateISO: string): Promise<OwnerSlot[]> {
+  const { data, error } = await db().rpc('owner_day_v2', { p_pitch: pitchId, p_day: dateISO });
+  if (error) return ownerDayV1(pitchId, dateISO);
+  return ((data ?? []) as Record<string, any>[]).map((r) => ({
+    id: r.id, hour: kwParts(r.starts_at).hour, duration: hoursBetween(r.starts_at, r.ends_at), status: r.status === 'blocked' ? 'blocked' : 'confirmed', playerName: r.player_name, total: Number(r.total), noShow: r.no_show, startsAt: r.starts_at,
+  }));
+}

@@ -64,6 +64,9 @@ function RootNavigator() {
           <Stack.Screen name="listing/academy" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="notifications" />
           <Stack.Screen name="billing" />
+          <Stack.Screen name="listing/edit/pitch/[id]" />
+          <Stack.Screen name="listing/edit/academy/[id]" />
+          <Stack.Screen name="tournament/edit/[id]" />
           <Stack.Screen name="tournament/new" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="tournament/mine" />
           <Stack.Screen name="tournament/join" />

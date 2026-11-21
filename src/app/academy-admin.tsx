@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { ProgramCard, Stepper } from '@/components/academy';
 import { ConfirmSheet, Sheet, useToast } from '@/components/overlays';
@@ -9,6 +9,8 @@ import { IconButton, Badge, Button, Card, Chip, Divider, EmptyState, Field, HScr
 import type { Level } from '@/data/types';
 import { dayLabel, formatDuration, formatHour } from '@/i18n/format';
 import { useApp } from '@/store/AppStore';
+import * as api from '@/lib/api';
+import { toISODate } from '@/i18n/format';
 import { useAcademies, type Program, type ProgramInput } from '@/store/academies';
 import { colors, space } from '@/theme';
 
@@ -31,6 +33,15 @@ export default function AcademyAdmin() {
   const toast = useToast();
   const [academyId, setAcademyId] = useState(ownedAcademies[0]?.id);
   const academy = ownedAcademies.find((a) => a.id === academyId) ?? ownedAcademies[0];
+  // Monthly fee and today's attendance per child (live mode).
+  const todayISO = toISODate(new Date());
+  const monthISO = `${todayISO.slice(0, 7)}-01`;
+  const [track, setTrack] = useState<{ paid: Set<string>; present: Map<string, boolean> }>({ paid: new Set(), present: new Map() });
+  const loadTrack = useCallback(() => {
+    if (mode !== 'live') return;
+    api.academyTracking(managedEnrollments.map((e) => e.id), monthISO, todayISO).then(setTrack).catch(() => {});
+  }, [mode, managedEnrollments, monthISO, todayISO]);
+  useEffect(loadTrack, [loadTrack]);
   const [form, setForm] = useState<{ id?: string; p: ProgramInput } | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -76,7 +87,10 @@ export default function AcademyAdmin() {
             ))}
           </Row>
         )}
-        <Txt v="h1">{l(academy.name)}</Txt>
+        <Row justify="space-between" gap={space.sm}>
+          <Txt v="h1" style={{ flex: 1 }}>{l(academy.name)}</Txt>
+          <Button title={t('edit')} small kind="secondary" icon="create-outline" onPress={() => router.push(`/listing/edit/academy/${academy.id}`)} />
+        </Row>
 
         <Card>
           <Row>
@@ -114,13 +128,45 @@ export default function AcademyAdmin() {
                         roster.map((e, i) => (
                           <View key={e.id}>
                             <Row justify="space-between" style={{ paddingVertical: 10 }}>
-                              <Row gap={8}>
+                              <Row gap={8} style={{ flex: 1 }}>
                                 <Ionicons name="person-circle-outline" size={20} color={colors.primary} />
-                                <Txt v="bodyStrong">{e.childName}</Txt>
+                                <Txt v="bodyStrong" numberOfLines={1} style={{ flexShrink: 1 }}>{e.childName}</Txt>
                                 <Txt v="caption" color={colors.textMuted}>
                                   {e.childAge}
                                 </Txt>
                               </Row>
+                              {mode === 'live' && !e.id.startsWith('demo-') && (
+                                <Row gap={6} style={{ marginHorizontal: 6 }}>
+                                  <Chip
+                                    label={track.paid.has(e.id) ? `✓ ${t('feeThisMonth')}` : t('feeThisMonth')}
+                                    icon="cash-outline"
+                                    selected={track.paid.has(e.id)}
+                                    onPress={async () => {
+                                      try {
+                                        await api.academyMarkPaid(e.id, monthISO, !track.paid.has(e.id));
+                                        loadTrack();
+                                      } catch (err) {
+                                        toast(errText(api.errorCode(err)), 'error');
+                                      }
+                                    }}
+                                  />
+                                  <Chip
+                                    label={track.present.get(e.id) === true ? `✓ ${t('presentToday')}` : track.present.get(e.id) === false ? `✗ ${t('absentToday')}` : t('attendance')}
+                                    icon="calendar-outline"
+                                    selected={track.present.get(e.id) === true}
+                                    onPress={async () => {
+                                      const cur = track.present.get(e.id);
+                                      const next = cur === undefined ? true : cur === true ? false : null;
+                                      try {
+                                        await api.academyMarkAttendance(e.id, todayISO, next);
+                                        loadTrack();
+                                      } catch (err) {
+                                        toast(errText(api.errorCode(err)), 'error');
+                                      }
+                                    }}
+                                  />
+                                </Row>
+                              )}
                               <Tap
                                 onPress={async () => {
                                   const r = await cancelEnrollment(e.id);

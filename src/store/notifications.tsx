@@ -29,6 +29,7 @@ export function notificationRoute(n: { kind?: string; data?: Record<string, stri
   const d = n.data ?? {};
   if (d.match_id) return `/match/${d.match_id}`;
   if (n.kind === 'payment_claimed') return '/admin';
+  if (d.invite_code) return `/tournament/join?code=${d.invite_code}`;
   if (d.invoice_id) return '/billing';
   if (d.fixture_id) return `/tournament/fixture/${d.fixture_id}`;
   if (d.team_id && d.tournament_id) return `/tournament/team/${d.team_id}?t=${d.tournament_id}`;

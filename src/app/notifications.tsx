@@ -44,6 +44,12 @@ const ICONS: Record<string, IconName> = {
   invoice_paid: 'checkmark-circle',
   subscription_suspended: 'pause-circle',
   payment_claimed: 'cash',
+  team_invite: 'mail-open',
+  fixture_moved: 'time',
+  booking_cancel_reason: 'information-circle',
+  account_suspended: 'ban',
+  account_restored: 'checkmark-circle',
+  academy_fee_paid: 'cash',
 };
 
 function ago(at: number, lang: 'ar' | 'en') {

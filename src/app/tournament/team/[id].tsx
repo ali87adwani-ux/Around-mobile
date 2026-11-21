@@ -12,6 +12,7 @@ import { WEB_URL } from '@/config';
 import * as api from '@/lib/api';
 import { useApp } from '@/store/AppStore';
 import { useCup } from '@/store/cups';
+import { useEngagement } from '@/store/engagement';
 import { colors, radius, space } from '@/theme';
 
 export default function TeamScreen() {
@@ -23,6 +24,7 @@ export default function TeamScreen() {
   const insets = useSafeAreaInsets();
   const team = tour?.teams.find((tm) => tm.id === id);
   const [code, setCode] = useState<string | null>(null);
+  const { teams: fixedTeams } = useEngagement();
   const [confirm, setConfirm] = useState<null | { kind: 'leave' | 'remove' | 'withdraw'; userId?: string }>(null);
 
   const roster = rosterOf(id);
@@ -99,6 +101,31 @@ export default function TeamScreen() {
             <Txt v="tiny" color={colors.textMuted}>
               {t('inviteHint')}
             </Txt>
+          </Card>
+        )}
+
+        {isCaptain && fixedTeams.length > 0 && team.status !== 'withdrawn' && (
+          <Card style={{ gap: space.sm }}>
+            <Txt v="label" color={colors.textMuted}>{t('inviteFixedTeam')}</Txt>
+            <Row gap={8} wrap>
+              {fixedTeams.map((ft) => (
+                <Button
+                  key={ft.id}
+                  title={ft.name}
+                  small
+                  kind="secondary"
+                  icon="shirt-outline"
+                  onPress={async () => {
+                    try {
+                      const n = await api.inviteFixedTeam(id, ft.id);
+                      toast(t('invitesSent', { n }), 'success');
+                    } catch (e) {
+                      toast(errText(api.errorCode(e)), 'error');
+                    }
+                  }}
+                />
+              ))}
+            </Row>
           </Card>
         )}
 

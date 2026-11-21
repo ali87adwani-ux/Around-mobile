@@ -5,7 +5,7 @@ import { Linking } from 'react-native';
 import { ScrollView, TextInput, View } from 'react-native';
 import { Stepper } from '@/components/academy';
 import { statusBadge } from '@/components/cards';
-import { Sheet, useToast } from '@/components/overlays';
+import { ConfirmSheet, Sheet, useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Avatar, Badge, Button, Card, Chip, Divider, EmptyState, HScroll, IconButton, Row, Tap, Txt, useDir, webNoOutline, type IconName } from '@/components/ui';
 import type { DuesRow, PendingPitch, Tournament } from '@/data/types';
@@ -132,6 +132,13 @@ function Users() {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<{ id: string; name: string; role: Role } | null>(null);
+  const { mode, refresh } = useApp();
+  const [suspended, setSuspended] = useState<Map<string, boolean>>(new Map());
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const loadFlags = useCallback(() => {
+    if (mode === 'live') api.adminUsersV2(q).then(setSuspended).catch(() => {});
+  }, [mode, q]);
+  useEffect(loadFlags, [loadFlags]);
   return (
     <>
       <Row gap={8} style={{ backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: space.md, height: 48, borderWidth: 1, borderColor: colors.border }}>
@@ -161,6 +168,7 @@ function Users() {
                     {u.contact} · {u.bookings} {t('todayBookings')}
                   </Txt>
                 </View>
+                {suspended.get(u.id) && <Badge label={t('suspendedUser')} color={colors.danger} bg={colors.dangerSoft} />}
                 <Badge label={t(`role_${u.role}` as StringKey)} color={roleColor[u.role]} bg={colors.surfaceMuted} />
               </Row>
             </Tap>
@@ -185,9 +193,50 @@ function Users() {
                 toast(res.ok ? t('roleUpdated') : errText(res.error), res.ok ? 'success' : 'error');
               }}
             />
+            {mode === 'live' && (
+              <>
+                <Button
+                  title={suspended.get(editing.id) ? t('unsuspendUser') : t('suspendUser')}
+                  kind="secondary"
+                  icon={suspended.get(editing.id) ? 'checkmark-circle-outline' : 'ban-outline'}
+                  onPress={async () => {
+                    const uid = editing.id;
+                    setEditing(null);
+                    try {
+                      await api.adminSetSuspended(uid, !suspended.get(uid));
+                      toast(t('done'), 'success');
+                      loadFlags();
+                    } catch (e) {
+                      toast(errText(api.errorCode(e)), 'error');
+                    }
+                  }}
+                />
+                <Button title={t('deleteUser')} kind="danger" icon="trash-outline" onPress={() => { setConfirmDelete(editing.id); setEditing(null); }} />
+              </>
+            )}
           </View>
         )}
       </Sheet>
+      <ConfirmSheet
+        visible={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        title={t('deleteUserConfirm')}
+        confirmLabel={t('deleteUser')}
+        cancelLabel={t('cancel')}
+        danger
+        onConfirm={async () => {
+          const uid = confirmDelete!;
+          setConfirmDelete(null);
+          try {
+            await api.adminDeleteUser(uid);
+            toast(t('done'), 'info');
+            searchUsers(q);
+            refresh();
+          } catch (e) {
+            toast(errText(api.errorCode(e)), 'error');
+          }
+        }}
+      />
     </>
   );
 }
@@ -321,6 +370,7 @@ function Pitches() {
                 }}
               />
               <Button title={t('assignOwner')} small kind="secondary" icon="person-add-outline" style={{ flex: 1 }} onPress={() => setAssign(p.id)} />
+              <Button title={t('edit')} small kind="ghost" icon="create-outline" onPress={() => router.push(`/listing/edit/pitch/${p.id}`)} />
             </Row>
           </Card>
         );
@@ -500,7 +550,12 @@ function BillingAdmin() {
   useEffect(() => {
     load();
   }, [load]);
-  const sub = (id: string) => subs.find((x) => x.id === id);
+  const sub = (id: string | null) => subs.find((x) => x.id === id);
+  const [items, setItems] = useState<Awaited<ReturnType<typeof api.fetchInvoiceItems>>>([]);
+  useEffect(() => {
+    if (mode === 'live') api.fetchInvoiceItems().then(setItems).catch(() => {});
+  }, [mode, invoices]);
+  const ownerName = (ownerId: string) => subs.find((x) => x.ownerId === ownerId)?.ownerName ?? '';
   const claimed = invoices.filter((i) => i.status === 'claimed');
   const unpaid = invoices.filter((i) => i.status === 'unpaid');
   const paid = invoices.filter((i) => i.status === 'paid');
@@ -588,11 +643,11 @@ function BillingAdmin() {
           subs.map((x) => (
             <Card key={x.id} style={{ gap: 4 }}>
               <Row justify="space-between" gap={space.sm}>
-                <Txt v="bodyStrong" style={{ flex: 1 }} numberOfLines={1}>{x.listingName}</Txt>
+                <Txt v="bodyStrong" style={{ flex: 1 }} numberOfLines={1}>{x.ownerName}</Txt>
                 {subStatusBadge(x.status, t)}
               </Row>
               <Txt v="caption" color={colors.textMuted}>
-                {x.ownerName} · {t(x.kind === 'pitch' ? 'adminPitches' : 'adminAcademies')} · {x.status === 'trial' ? t('freeUntil', { date: fmtDate(x.trialEndsAt, lang) }) : t('paidUntil', { date: fmtDate(x.paidUntil, lang) })}
+                {x.listingName} · {t(x.kind === 'pitch' ? 'adminPitches' : 'adminAcademies')} · {x.status === 'trial' ? t('freeUntil', { date: fmtDate(x.trialEndsAt, lang) }) : t('paidUntil', { date: fmtDate(x.paidUntil, lang) })}
               </Txt>
             </Card>
           ))
@@ -608,9 +663,13 @@ function BillingAdmin() {
                 <Txt v="h3">{money(inv.amount)}</Txt>
                 {invoiceBadge(inv.status, t)}
               </Row>
-              <Txt v="caption" color={colors.textMuted}>
-                {sub(inv.subscriptionId)?.listingName} · {sub(inv.subscriptionId)?.ownerName}
-              </Txt>
+              <Txt v="caption" color={colors.textMuted}>{ownerName(inv.ownerId)}</Txt>
+              {items.filter((x) => x.invoiceId === inv.id).map((x, k) => (
+                <Row key={k} justify="space-between" gap={space.sm}>
+                  <Txt v="tiny" color={colors.textMuted} style={{ flex: 1 }} numberOfLines={2}>{lang === 'ar' ? x.labelAr : x.labelEn}</Txt>
+                  <Txt v="tiny">{money(x.amount)}</Txt>
+                </Row>
+              ))}
               <Txt v="tiny" color={colors.textMuted}>
                 {fmtDate(inv.periodStart, lang)} → {fmtDate(inv.periodEnd, lang)} · {t('dueOn', { date: fmtDate(inv.dueAt, lang) })}
               </Txt>
@@ -778,7 +837,10 @@ function AcademiesPanel() {
         const revenue = ps.reduce((s, p) => s + p.enrolled * p.monthlyFee, 0);
         return (
           <Card key={a.id} onPress={() => router.push(`/academy/${a.id}`)} style={{ gap: space.sm }}>
-            <Txt v="h3">{l(a.name)}</Txt>
+            <Row justify="space-between" gap={space.sm}>
+              <Txt v="h3" style={{ flex: 1 }}>{l(a.name)}</Txt>
+              <Button title={t('edit')} small kind="ghost" icon="create-outline" onPress={() => router.push(`/listing/edit/academy/${a.id}`)} />
+            </Row>
             <Txt v="caption" color={colors.textMuted}>
               {l(a.area)} · {ps.length} {t('programs')}
             </Txt>

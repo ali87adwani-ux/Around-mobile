@@ -4,7 +4,9 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LocationPicker, PhotoPicker } from '@/components/ListingInputs';
 import { useToast } from '@/components/overlays';
+import type { Coords } from '@/lib/location';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Button, Card, Chip, Field, Row, Txt, haptic } from '@/components/ui';
 import type { Governorate } from '@/data/types';
@@ -23,6 +25,9 @@ export default function NewAcademyListing() {
   const [area, setArea] = useState('');
   const [gov, setGov] = useState<Governorate>('hawalli');
   const [about, setAbout] = useState('');
+  const [nameEn, setNameEn] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [loc, setLoc] = useState<Coords | null>(null);
   const [phone, setPhone] = useState('');
   const [note, setNote] = useState('');
   const [tried, setTried] = useState(false);
@@ -38,7 +43,7 @@ export default function NewAcademyListing() {
       return;
     }
     setBusy(true);
-    const r = await submitAcademy({ name: name.trim(), area: area.trim(), governorate: gov, about: about.trim(), phone: phone.trim(), note: note.trim() });
+    const r = await submitAcademy({ name: name.trim(), nameEn: nameEn.trim(), photos, lat: loc?.lat, lng: loc?.lng, area: area.trim(), governorate: gov, about: about.trim(), phone: phone.trim(), note: note.trim() });
     setBusy(false);
     if (!r.ok) return toast(errText(r.error), 'error');
     haptic.success();
@@ -63,6 +68,8 @@ export default function NewAcademyListing() {
         </Card>
 
         <Field label={t('academyName')} placeholder={t('academyNamePh')} value={name} onChangeText={setName} error={tried && name.trim().length < 3 ? t('required') : undefined} />
+        <Field label={t('nameEnOptional')} placeholder="e.g. Stars Football Academy" value={nameEn} onChangeText={setNameEn} autoCapitalize="words" />
+        <PhotoPicker paths={photos} onChange={setPhotos} />
         <Field label={t('pitchArea')} placeholder={t('pitchAreaPh')} value={area} onChangeText={setArea} error={tried && area.trim().length < 2 ? t('required') : undefined} />
 
         <View style={{ gap: space.sm }}>
@@ -74,6 +81,7 @@ export default function NewAcademyListing() {
           </Row>
         </View>
 
+        <LocationPicker value={loc} onChange={setLoc} />
         <Field label={t('academyAbout')} placeholder={t('academyAboutPh')} value={about} onChangeText={setAbout} multiline style={{ minHeight: 100, textAlignVertical: 'top' }} />
         <Field
           label={t('contactPhone')}

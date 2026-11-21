@@ -21,6 +21,7 @@ import { strings, type StringKey } from '@/i18n/strings';
 import { dateFromOffset, formatHour, formatMoney, toISODate } from '@/i18n/format';
 import { cancelReminder, scheduleReminder } from '@/lib/reminders';
 import { registerForPush, unregisterPush } from '@/lib/push';
+import { currentLocation, distanceKm, type Coords } from '@/lib/location';
 import * as api from '@/lib/api';
 import type { OwnerSlot } from '@/lib/api';
 import { backendEnabled, supabase } from '@/lib/supabase';
@@ -280,6 +281,9 @@ interface Ctx {
   // pitch listings
   /** Every pitch the user listed, including ones waiting for review. */
   myListings: Pitch[];
+  /** Asks for the device location once and sorts pitches by real distance. */
+  locate: () => Promise<boolean>;
+  hasLocation: boolean;
   submitPitch: (p: PitchSubmissionInput) => Promise<Result>;
   withdrawPitch: (pitchId: string) => Promise<Result>;
   /** Demo only: approve / reject a listing from the admin dashboard. */
@@ -425,15 +429,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const meId = live ? userId ?? '' : ME_ID;
 
   /** Every pitch including deactivated ones (admin). */
+  const [userLoc, setUserLoc] = useState<Coords | null>(null);
+  const [myStats, setMyStats] = useState<{ played: number; goals: number; mvp: number; titles: number } | null>(null);
+  useEffect(() => {
+    if (!live || !userId) return setMyStats(null);
+    api.playerStats(userId).then((s) => setMyStats({ played: s.played, goals: s.goals ?? 0, mvp: s.mvp, titles: s.titles ?? 0 })).catch(() => {});
+  }, [live, userId, remote.matches, remote.tournaments]);
   const allPitches = useMemo(() => {
-    if (live) return remote.pitches;
-    return [...state.demoListings, ...seedPitches].map((p) => ({
+    // Real distance from the player when we know where they are (live pitches have no distance otherwise).
+    const withDistance = (list: Pitch[]) =>
+      userLoc ? list.map((p) => (p.lat != null && p.lng != null ? { ...p, distanceKm: distanceKm(userLoc, { lat: p.lat, lng: p.lng }) } : { ...p, distanceKm: 999 })) : list;
+    if (live) return withDistance(remote.pitches);
+    return withDistance([...state.demoListings, ...seedPitches]).map((p) => ({
       ...p,
       ...state.demoPitchEdits[p.id],
       active: p.status && p.status !== 'approved' ? false : !state.demoPitchInactive.includes(p.id),
       pricePerHour: state.demoPrices[p.id] ?? p.pricePerHour,
     }));
-  }, [live, remote.pitches, state.demoPrices, state.demoPitchInactive, state.demoPitchEdits, state.demoListings]);
+  }, [live, remote.pitches, state.demoPrices, state.demoPitchInactive, state.demoPitchEdits, state.demoListings, userLoc]);
   const pitches = useMemo(() => allPitches.filter((p) => p.active !== false), [allPitches]);
 
   const allMatches = useMemo(() => (live ? remote.matches : [...state.createdMatches, ...seedMatches]), [live, remote.matches, state.createdMatches]);
@@ -465,11 +478,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       position: state.profile.position,
       level: state.profile.level,
       area: pitches[0]?.area ?? { ar: '', en: '' },
-      stats: live ? { matches: played, goals: 0, assists: 0, mvp: 0, wins: 0, rating: 0 } : demoStats,
+      stats: live ? { matches: myStats?.played ?? played, goals: myStats?.goals ?? 0, assists: 0, mvp: myStats?.mvp ?? 0, wins: myStats?.titles ?? 0, rating: 0 } : demoStats,
       color: '#0B2E6F',
       avatarUrl: state.profile.avatarUrl,
     };
-  }, [live, remote.matches, meId, state.profile, state.joinedMatchIds.length, pitches]);
+  }, [live, remote.matches, meId, state.profile, state.joinedMatchIds.length, pitches, myStats]);
 
   const myListings = useMemo(() => (live ? allPitches.filter((p) => p.ownerId === meId) : state.demoListings.map((l) => allPitches.find((p) => p.id === l.id) ?? l)), [live, allPitches, meId, state.demoListings]);
   const ownerPitches = useMemo(() => {
@@ -750,13 +763,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return ok();
         }),
       myListings,
+      hasLocation: !!userLoc,
+      locate: async () => {
+        const c = await currentLocation();
+        if (c) setUserLoc(c);
+        return !!c;
+      },
       reviewDemoListing: (pitchId, approve) => dispatch({ type: 'reviewDemoListing', id: pitchId, approve }),
       submitPitch: (p) =>
         guard(async () => {
           if (live) {
-            await api.submitPitch(p);
+            const id = await api.submitPitch(p);
             await refresh();
-            return ok();
+            return ok(id);
           }
           const id = `lst${Date.now()}`;
           dispatch({
@@ -876,7 +895,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return ok();
         }),
     };
-  }, [state, themeName, live, reviewCache, userId, role, authChecked, loading, lang, isRTL, t, l, money, errText, meId, me, pitches, allPitches, players, tournaments, allMatches, myBookings, isJoined, bookedHours, loadBusy, refresh, isOwner, ownerPitches, myListings]);
+  }, [state, themeName, live, reviewCache, userId, role, authChecked, loading, lang, isRTL, t, l, money, errText, meId, me, pitches, allPitches, players, tournaments, allMatches, myBookings, isJoined, bookedHours, loadBusy, refresh, isOwner, ownerPitches, myListings, userLoc]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

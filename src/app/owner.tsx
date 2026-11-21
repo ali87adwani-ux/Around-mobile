@@ -2,9 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
-import { useToast } from '@/components/overlays';
+import { Sheet, useToast } from '@/components/overlays';
+import * as api from '@/lib/api';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { Badge, Button, Card, Chip, Divider, EmptyState, HScroll, IconButton, Row, Segmented, Stat, Tap, Txt, haptic, type IconName } from '@/components/ui';
+import { Field, Badge, Button, Card, Chip, Divider, EmptyState, HScroll, IconButton, Row, Segmented, Stat, Tap, Txt, haptic, type IconName } from '@/components/ui';
 import { Stepper } from '@/components/academy';
 import type { Amenity } from '@/data/types';
 import type { ReportDay } from '@/lib/api';
@@ -24,6 +25,8 @@ export default function OwnerDashboard() {
   const [price, setPrice] = useState(pitch?.pricePerHour ?? 0);
   const [busyHour, setBusyHour] = useState<number | null>(null);
   const [version, setVersion] = useState(0);
+  const [actionSlot, setActionSlot] = useState<OwnerSlot | null>(null);
+  const [reason, setReason] = useState('');
 
   useEffect(() => setPrice(pitch?.pricePerHour ?? 0), [pitch?.id, pitch?.pricePerHour]);
 
@@ -115,7 +118,12 @@ export default function OwnerDashboard() {
         />
 
         {tab === 'reports' && <Reports pitchId={pitch.id} />}
-        {tab === 'settings' && <Settings pitchId={pitch.id} price={price} setPrice={setPrice} savePrice={savePrice} />}
+        {tab === 'settings' && (
+          <>
+            <Button title={t('editPitchDetails')} kind="secondary" icon="images-outline" onPress={() => router.push(`/listing/edit/pitch/${pitch.id}`)} />
+            <Settings pitchId={pitch.id} price={price} setPrice={setPrice} savePrice={savePrice} />
+          </>
+        )}
 
         {tab === 'schedule' && (
         <>
@@ -171,8 +179,9 @@ export default function OwnerDashboard() {
                             </Txt>
                           </Row>
                           {slot && (
-                            <Txt v="tiny" color={colors.textMuted}>
+                            <Txt v="tiny" color={slot.noShow ? colors.danger : colors.textMuted}>
                               {money(slot.total)}
+                              {slot.noShow ? ` · ${t('noShowMarked')}` : ''}
                             </Txt>
                           )}
                         </>
@@ -182,6 +191,9 @@ export default function OwnerDashboard() {
                         <Badge label={t('free')} icon="ellipse-outline" color={colors.success} bg={colors.successSoft} />
                       )}
                     </View>
+                    {slot?.status === 'confirmed' && mode === 'live' && slot.total > 0 && (
+                      <IconButton icon="ellipsis-horizontal" label={t('bookingActions')} size={36} onPress={() => setActionSlot(slot)} />
+                    )}
                     {!past && !covered && slot?.status !== 'confirmed' && (
                       <Button
                         title={slot ? t('unblockSlot') : t('blockSlot')}
@@ -202,6 +214,52 @@ export default function OwnerDashboard() {
         </>
         )}
       </ScrollView>
+      <Sheet visible={!!actionSlot} onClose={() => setActionSlot(null)} title={t('bookingActions')}>
+        {actionSlot && (
+          <View style={{ gap: space.md }}>
+            <Txt v="bodyStrong">{t('bookedBy', { name: actionSlot.playerName || t('player') })} · {formatHour(actionSlot.hour, lang)}</Txt>
+            {actionSlot.startsAt && new Date(actionSlot.startsAt).getTime() < Date.now() ? (
+              <Button
+                title={actionSlot.noShow ? t('undoNoShow') : t('markNoShow')}
+                kind="secondary"
+                icon="person-remove-outline"
+                onPress={async () => {
+                  const sl = actionSlot;
+                  setActionSlot(null);
+                  try {
+                    await api.ownerMarkNoShow(sl.id, !sl.noShow);
+                    toast(t('done'), 'info');
+                    load();
+                  } catch (e) {
+                    toast(errText(api.errorCode(e)), 'error');
+                  }
+                }}
+              />
+            ) : (
+              <>
+                <Field label={t('cancelReason')} placeholder={t('cancelReasonPh')} value={reason} onChangeText={setReason} />
+                <Button
+                  title={t('cancelBookingOwner')}
+                  kind="danger"
+                  icon="close-circle"
+                  onPress={async () => {
+                    const sl = actionSlot;
+                    setActionSlot(null);
+                    try {
+                      await api.ownerCancelBooking(sl.id, reason.trim());
+                      setReason('');
+                      toast(t('bookingCancelledOwner'), 'info');
+                      load();
+                    } catch (e) {
+                      toast(errText(api.errorCode(e)), 'error');
+                    }
+                  }}
+                />
+              </>
+            )}
+          </View>
+        )}
+      </Sheet>
     </View>
   );
 }

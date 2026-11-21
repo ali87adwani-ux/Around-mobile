@@ -21,12 +21,14 @@ export default function Billing() {
   const [settings, setSettings] = useState<api.AppSettings | null>(null);
   const [loading, setLoading] = useState(false);
   const [claim, setClaim] = useState<string | null>(null);
+  const [items, setItems] = useState<Awaited<ReturnType<typeof api.fetchInvoiceItems>>>([]);
 
   const load = useCallback(async () => {
     if (mode !== 'live') return;
     setLoading(true);
     try {
-      const [s, i, st] = await Promise.all([api.billingOverview(false), api.fetchInvoices(), api.appSettings()]);
+      const [s, i, st, it] = await Promise.all([api.billingOverview(false), api.fetchInvoices(), api.appSettings(), api.fetchInvoiceItems()]);
+      setItems(it);
       setSubs(s);
       setInvoices(i);
       setSettings(st);
@@ -37,7 +39,21 @@ export default function Billing() {
     load();
   }, [load]);
 
-  const subName = (id: string) => subs.find((s) => s.id === id)?.listingName ?? '';
+  const subName = (id: string | null) => (id ? subs.find((s) => s.id === id)?.listingName ?? '' : '');
+  const lines = (invId: string) => items.filter((x) => x.invoiceId === invId);
+  const Lines = ({ id }: { id: string }) =>
+    lines(id).length ? (
+      <View style={{ gap: 4, paddingVertical: 4 }}>
+        {lines(id).map((x, k) => (
+          <Row key={k} justify="space-between" gap={space.sm}>
+            <Txt v="caption" color={colors.textMuted} style={{ flex: 1 }} numberOfLines={2}>
+              {lang === 'ar' ? x.labelAr : x.labelEn}
+            </Txt>
+            <Txt v="label">{money(x.amount)}</Txt>
+          </Row>
+        ))}
+      </View>
+    ) : null;
   const pay = (inv: api.Invoice) => {
     const link = inv.paymentLink || settings?.paymentLink;
     if (link) Linking.openURL(link);
@@ -72,9 +88,10 @@ export default function Billing() {
               <Row justify="space-between" gap={space.sm}>
                 <Row gap={8} style={{ flex: 1 }}>
                   <Ionicons name={s.kind === 'pitch' ? 'football-outline' : 'school-outline'} size={18} color={colors.primary} />
-                  <Txt v="bodyStrong" numberOfLines={1} style={{ flex: 1 }}>
-                    {s.listingName}
-                  </Txt>
+                  <View style={{ flex: 1 }}>
+                    <Txt v="bodyStrong">{t(s.kind === 'pitch' ? 'subPitches' : 'subAcademy')}</Txt>
+                    <Txt v="tiny" color={colors.textMuted} numberOfLines={2}>{s.listingName}</Txt>
+                  </View>
                 </Row>
                 {subStatusBadge(s.status, t)}
               </Row>
@@ -94,8 +111,9 @@ export default function Billing() {
               <Txt v="h2">{money(inv.amount)}</Txt>
               {invoiceBadge(inv.status, t)}
             </Row>
+            <Lines id={inv.id} />
             <Txt v="caption" color={colors.textMuted}>
-              {subName(inv.subscriptionId)} · {fmtDate(inv.periodStart, lang)} → {fmtDate(inv.periodEnd, lang)}
+              {subName(inv.subscriptionId)} {fmtDate(inv.periodStart, lang)} → {fmtDate(inv.periodEnd, lang)}
             </Txt>
             <Txt v="caption" color={new Date(inv.dueAt).getTime() < Date.now() ? colors.danger : colors.textMuted}>
               {t('dueOn', { date: fmtDate(inv.dueAt, lang) })}

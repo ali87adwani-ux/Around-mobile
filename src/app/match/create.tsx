@@ -100,7 +100,7 @@ export default function CreateMatch() {
                     accessibilityState={{ selected: sel }}
                     style={{ width: 150, borderRadius: radius.lg, borderWidth: 2, borderColor: sel ? colors.primary : 'transparent', backgroundColor: colors.card, overflow: 'hidden' }}
                   >
-                    <PitchArt tint={p.tint} height={64} radiusSize={0}>
+                    <PitchArt tint={p.tint} photo={p.photos?.[0]} height={64} radiusSize={0}>
                       {sel && (
                         <View style={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
                           <Ionicons name="checkmark" size={16} color={colors.primaryDark} />

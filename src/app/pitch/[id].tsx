@@ -8,6 +8,7 @@ import { FavButton } from '@/components/cards';
 import { Sheet, useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Badge, Button, Card, Chip, Divider, Field, HScroll, PitchArt, Row, Tap, Txt, haptic, type IconName } from '@/components/ui';
+import { PhotoGallery } from '@/components/PhotoGallery';
 import { prayerInHour } from '@/lib/prayer';
 import { bookingPrice, isOffPeak } from '@/lib/pricing';
 import type { Amenity, PitchSize } from '@/data/types';
@@ -94,7 +95,7 @@ export default function PitchScreen() {
       <StatusBar style="light" />
       <ScreenHeader transparent light right={<FavButton id={pitch.id} size={42} />} />
       <ScrollView contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
-        <PitchArt tint={pitch.tint} height={260 + insets.top} radiusSize={0}>
+        <PitchArt tint={pitch.tint} photo={pitch.photos?.[0]} height={260 + insets.top} radiusSize={0}>
           <View style={{ flex: 1, justifyContent: 'flex-end', padding: space.lg, paddingBottom: space.xxl }}>
             <Row gap={6}>
               <Badge label={pitch.indoor ? t('indoor') : t('outdoor')} color={colors.white} bg="rgba(0,0,0,0.3)" icon={pitch.indoor ? 'home' : 'sunny'} />
@@ -137,6 +138,7 @@ export default function PitchScreen() {
             </Row>
           )}
 
+          <PhotoGallery photos={pitch.photos ?? []} />
           {/* Amenities */}
           <View style={{ gap: space.md }}>
             <Txt v="h3">{t('amenities')}</Txt>

@@ -46,7 +46,7 @@ export default function Bookings() {
           return (
             <Card style={{ gap: space.md, opacity: cancelled ? 0.65 : 1 }} onPress={() => router.push(`/pitch/${p.id}`)}>
               <Row gap={space.md}>
-                <PitchArt tint={p.tint} height={64} style={{ width: 64 }} radiusSize={14}>
+                <PitchArt tint={p.tint} photo={p.photos?.[0]} height={64} style={{ width: 64 }} radiusSize={14}>
                   <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                     <Ionicons name="football" size={24} color={colors.white} />
                   </View>

@@ -37,6 +37,9 @@ export default function NewTournament() {
   const [prize, setPrize] = useState(300);
   const [prize2, setPrize2] = useState(100);
   const [rules, setRules] = useState('');
+  const [nameEn, setNameEn] = useState('');
+  const [slot, setSlot] = useState(60);
+  const [deadlineOff, setDeadlineOff] = useState<number | null>(null);
   const [rate, setRate] = useState(0.05);
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -62,6 +65,14 @@ export default function NewTournament() {
         name: name.trim(), pitchId, format, formatType: type, groupsCount: groups, startsOn: toISODate(dateFromOffset(startOff)), maxTeams,
         minPlayers: minP, maxPlayers: Math.max(maxP, minP), ageCategory: age, entryFee: fee, prize, prizeSecond: prize2, rules: rules.trim(),
       });
+      if (nameEn.trim() || slot !== 60 || deadlineOff != null) {
+        await api
+          .updateTournament(id, {
+            nameAr: name.trim(), nameEn: nameEn.trim(), fee, prize, prize2, rules: rules.trim(), maxTeams, startsOn: toISODate(dateFromOffset(startOff)),
+            regDeadline: deadlineOff == null ? null : toISODate(dateFromOffset(Math.min(deadlineOff, startOff))), minPlayers: minP, maxPlayers: Math.max(maxP, minP), slotMinutes: slot,
+          })
+          .catch(() => {});
+      }
       await refresh();
       haptic.success();
       toast(isAdmin ? t('tournamentPublished') : t('tournamentSent'), 'success');
@@ -95,6 +106,8 @@ export default function NewTournament() {
       <ScreenHeader title={t('newTournament')} />
       <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + 120 }} keyboardShouldPersistTaps="handled">
         <Field label={t('tournamentName')} placeholder={t('tournamentNamePh')} value={name} onChangeText={setName} error={tried && name.trim().length < 3 ? t('required') : undefined} />
+
+        <Field label={t('nameEnOptional')} placeholder="e.g. Ramadan Cup" value={nameEn} onChangeText={setNameEn} autoCapitalize="words" />
 
         <View style={{ gap: space.sm }}>
           {label(t('choosePitch'))}
@@ -158,6 +171,26 @@ export default function NewTournament() {
             <Stepper value={maxP} onChange={(v) => setMaxP(Math.max(v, minP))} min={1} max={30} />
           </View>
         </Row>
+
+        <View style={{ gap: 6 }}>
+          {label(t('regDeadline'))}
+          <Row gap={8} wrap>
+            <Chip label={t('noDeadline')} selected={deadlineOff == null} onPress={() => setDeadlineOff(null)} />
+            <Chip label={t('setDeadline')} selected={deadlineOff != null} onPress={() => setDeadlineOff(Math.max(0, startOff - 2))} />
+          </Row>
+          {deadlineOff != null && (
+            <Stepper value={deadlineOff} onChange={(v) => setDeadlineOff(Math.min(v, startOff))} min={0} max={startOff} format={(v) => formatDay(dateFromOffset(v), lang, { today: t('today'), tomorrow: t('tomorrow') })} />
+          )}
+        </View>
+
+        <View style={{ gap: 6 }}>
+          {label(t('matchLength'))}
+          <Row gap={8}>
+            {[60, 90, 120].map((m) => (
+              <Chip key={m} label={t('minutes', { n: m })} selected={slot === m} onPress={() => setSlot(m)} />
+            ))}
+          </Row>
+        </View>
 
         <View style={{ gap: space.sm }}>
           {label(t('ageCategory'))}

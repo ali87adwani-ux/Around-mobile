@@ -8,6 +8,7 @@ import { ProgramCard, Stepper } from '@/components/academy';
 import { ConfirmSheet, Sheet, useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Button, Card, EmptyState, Field, PitchArt, Row, Txt, haptic } from '@/components/ui';
+import { PhotoGallery } from '@/components/PhotoGallery';
 import { useApp } from '@/store/AppStore';
 import { useAcademies, type Program } from '@/store/academies';
 import { colors, radius, space } from '@/theme';
@@ -58,7 +59,7 @@ export default function AcademyScreen() {
       <StatusBar style="light" />
       <ScreenHeader transparent light />
       <ScrollView contentContainerStyle={{ paddingBottom: space.xxl }}>
-        <PitchArt tint={academy.tint} height={220 + insets.top} radiusSize={0}>
+        <PitchArt tint={academy.tint} photo={academy.photos?.[0]} height={220 + insets.top} radiusSize={0}>
           <View style={{ flex: 1, justifyContent: 'flex-end', padding: space.lg, paddingBottom: space.xxl, gap: 4 }}>
             <Txt v="display" color={colors.white}>
               {l(academy.name)}
@@ -76,6 +77,7 @@ export default function AcademyScreen() {
           </View>
         </PitchArt>
         <View style={{ marginTop: -space.xl, backgroundColor: colors.bg, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: space.lg, gap: space.lg }}>
+          <PhotoGallery photos={academy.photos ?? []} />
           <Txt v="body" color={colors.textMuted}>
             {l(academy.about)}
           </Txt>

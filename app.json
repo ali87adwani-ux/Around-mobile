@@ -56,7 +56,13 @@
           "color": "#0B2E6F"
         }
       ],
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "الدوري يستخدم موقعك عشان يرتب لك الملاعب الأقرب، ويحدد موقع ملعبك إذا كنت صاحب ملعب. Al Dawri uses your location to show the nearest pitches and to pin your pitch on the map."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false

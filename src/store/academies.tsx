@@ -18,11 +18,20 @@ export interface Academy {
   rating: number;
   tint: [string, string];
   active?: boolean;
+  photos?: string[];
+  photoPaths?: string[];
+  nameEn?: string;
+  lat?: number;
+  lng?: number;
   /** Academies added by owners stay 'pending' until an admin approves them. */
   status?: 'pending' | 'approved' | 'rejected';
 }
 export interface AcademyInput {
   name: string;
+  nameEn?: string;
+  photos?: string[];
+  lat?: number;
+  lng?: number;
   area: string;
   governorate: string;
   about: string;
@@ -147,7 +156,8 @@ export function AcademiesProvider({ children }: { children: React.ReactNode }) {
         (a.data ?? []).map((r: Record<string, any>) => ({
           id: r.id, ownerId: r.owner_id ?? undefined, name: { ar: r.name_ar, en: r.name_en }, area: { ar: r.area_ar, en: r.area_en },
           about: { ar: r.about_ar, en: r.about_en }, governorate: r.governorate, rating: Number(r.rating), tint: [r.tint[0], r.tint[1] ?? r.tint[0]],
-          active: r.active, status: r.status ?? 'approved',
+          active: r.active, status: r.status ?? 'approved', photoPaths: r.photos ?? [], nameEn: r.name_en, lat: r.lat ?? undefined, lng: r.lng ?? undefined,
+          photos: (r.photos ?? []).map((ph: string) => supabase!.storage.from('listing-photos').getPublicUrl(ph).data.publicUrl),
         })),
       );
       setLivePrograms(
@@ -200,20 +210,27 @@ export function AcademiesProvider({ children }: { children: React.ReactNode }) {
       academies,
       allAcademies,
       myAcademyListings,
-      submitAcademy: (a) =>
-        run(async () => {
-          if (live && supabase) {
-            const { error } = await supabase.rpc('submit_academy', { p_name: a.name, p_area: a.area, p_governorate: a.governorate, p_about: a.about, p_phone: a.phone, p_note: a.note });
-            if (error) throw error;
-            await reload();
-            return;
+      submitAcademy: async (a) => {
+        if (live && supabase) {
+          const { data, error } = await supabase.rpc('submit_academy', { p_name: a.name, p_area: a.area, p_governorate: a.governorate, p_about: a.about, p_phone: a.phone, p_note: a.note });
+          if (error) return { ok: false, error: errorCode(error) };
+          const id = (data as { id: string }).id;
+          if (a.photos?.length || a.nameEn?.trim() || a.lat != null) {
+            await supabase
+              .rpc('update_academy_details', { p_academy: id, p_name_ar: a.name, p_name_en: a.nameEn ?? '', p_area: a.area, p_governorate: a.governorate, p_about: a.about, p_lat: a.lat ?? null, p_lng: a.lng ?? null, p_photos: a.photos ?? [] })
+              .then(() => {}, () => {});
           }
+          await reload();
+          return { ok: true, id };
+        }
+        return run(async () => {
           const row: Academy = {
             id: `al${Date.now()}`, ownerId: meId, name: { ar: a.name, en: a.name }, area: { ar: a.area, en: a.area }, about: { ar: a.about, en: a.about },
             governorate: a.governorate, rating: 0, tint: ['#0F5F5C', '#1E9B8F'], active: false, status: 'pending',
           };
           setDemo((d) => ({ ...d, listings: [row, ...(d.listings ?? [])] }));
-        }),
+        });
+      },
       withdrawAcademy: (id) =>
         run(async () => {
           if (live && supabase) {
