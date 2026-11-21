@@ -89,7 +89,7 @@ export default function OwnerDashboard() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <ScreenHeader title={t('ownerDashboard')} right={<IconButton icon="refresh" label="refresh" onPress={load} />} />
+      <ScreenHeader title={t('ownerDashboard')} right={<IconButton icon="trophy-outline" label={t('myTournaments')} onPress={() => router.push('/tournament/mine')} />} />
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingTop: 0, gap: space.lg, paddingBottom: space.xxl }}>
         {mode === 'demo' && <Badge label={t('demoMode')} icon="information-circle" color={colors.info} bg={colors.infoSoft} />}
 

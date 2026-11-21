@@ -144,13 +144,16 @@ export function MatchCard({ match, compact }: { match: Match; compact?: boolean 
 export function statusBadge(status: Tournament['status'], t: ReturnType<typeof useApp>['t']) {
   if (status === 'live') return <Badge label={t('status_live')} color={colors.white} bg={colors.danger} icon="radio-button-on" />;
   if (status === 'open') return <Badge label={t('status_open')} color={colors.primaryDark} bg={colors.accent} icon="create-outline" />;
+  if (status === 'closed') return <Badge label={t('status_closed')} color={colors.primaryDark} bg={colors.accent} icon="lock-closed-outline" />;
+  if (status === 'pending') return <Badge label={t('status_pending')} color={colors.white} bg={colors.warning} icon="time-outline" />;
+  if (status === 'rejected' || status === 'cancelled') return <Badge label={t(`status_${status}`)} color={colors.white} bg="rgba(0,0,0,0.35)" icon="close-circle-outline" />;
   return <Badge label={t('status_finished')} color={colors.white} bg="rgba(255,255,255,0.22)" icon="flag-outline" />;
 }
 
 export function TournamentCard({ tournament }: { tournament: Tournament }) {
   const { l, t, money, registrationFor } = useApp();
   const reg = registrationFor(tournament.id);
-  const teamsN = tournament.teams.length;
+  const teamsN = tournament.teams.filter((tm) => tm.status !== 'rejected' && tm.status !== 'withdrawn').length;
   return (
     <Card onPress={() => router.push(`/tournament/${tournament.id}`)} style={{ padding: 0, overflow: 'hidden' }}>
       <PitchArt tint={tournament.tint} height={140} radiusSize={0}>

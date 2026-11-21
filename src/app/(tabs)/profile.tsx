@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { ActivityIndicator, Image, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +9,8 @@ import { PitchCard } from '@/components/cards';
 import { ConfirmSheet, Sheet, useToast } from '@/components/overlays';
 import { PlayerCard } from '@/components/PlayerCard';
 import { Button, Card, Chip, Divider, Field, HScroll, Progress, Row, Segmented, Tap, Txt, useDir, type IconName } from '@/components/ui';
-import type { Lang, Level, Position } from '@/data/types';
+import type { Lang, Level, Position, Trophy } from '@/data/types';
+import * as api from '@/lib/api';
 import { useApp } from '@/store/AppStore';
 import { useSupport } from '@/store/support';
 import { useAcademies } from '@/store/academies';
@@ -22,6 +23,10 @@ export default function Profile() {
   const { t, me, state, dispatch, lang, pitches, myBookings, isOwner, mode, signOut, saveProfile, errText, allMatches, isJoined, setAvatar, removeAvatar, role, deleteAccount, myListings } = useApp();
   const { unread } = useNotifications();
   const [delAccount, setDelAccount] = useState(false);
+  const [trophies, setTrophies] = useState<Trophy[]>([]);
+  useEffect(() => {
+    if (mode === 'live' && me.id) api.fetchTrophies(me.id).then(setTrophies).catch(() => {});
+  }, [mode, me.id]);
   const [deleting, setDeleting] = useState(false);
   const insets = useSafeAreaInsets();
   const toast = useToast();
@@ -142,6 +147,8 @@ export default function Profile() {
             <>
               <Divider />
               <MenuItem icon="speedometer-outline" label={t('ownerDashboard')} onPress={() => router.push('/owner')} />
+              <Divider />
+              <MenuItem icon="trophy-outline" label={t('myTournaments')} onPress={() => router.push('/tournament/mine')} />
             </>
           )}
           {ownedAcademies.length > 0 && (
@@ -154,6 +161,12 @@ export default function Profile() {
             <>
               <Divider />
               <MenuItem icon="shield-checkmark-outline" label={t('adminDashboard')} onPress={() => router.push('/admin')} />
+              {!isOwner && (
+                <>
+                  <Divider />
+                  <MenuItem icon="trophy-outline" label={t('myTournaments')} onPress={() => router.push('/tournament/mine')} />
+                </>
+              )}
             </>
           )}
         </Card>
@@ -228,6 +241,23 @@ export default function Profile() {
           <MenuItem icon="trash-outline" label={t('deleteAccount')} color={colors.danger} onPress={() => setDelAccount(true)} />
         </Card>
       </View>
+
+      {trophies.length > 0 && (
+        <View style={{ gap: space.md }}>
+          <Txt v="h3" style={{ paddingHorizontal: space.lg }}>
+            🏆 {t('trophies')}
+          </Txt>
+          <HScroll>
+            {trophies.map((tr, i) => (
+              <Card key={i} onPress={() => router.push(`/tournament/${tr.tournamentId}`)} style={{ width: 150, gap: 4, alignItems: 'center' }}>
+                <Ionicons name={tr.kind === 'champion' ? 'trophy' : tr.kind === 'runner_up' ? 'medal' : tr.kind === 'top_scorer' ? 'football' : tr.kind === 'best_keeper' ? 'hand-left' : 'star'} size={26} color={colors.warning} />
+                <Txt v="label" center>{t(`award_${tr.kind}`)}</Txt>
+                <Txt v="tiny" color={colors.textMuted} center numberOfLines={2}>{tr.name[lang]}</Txt>
+              </Card>
+            ))}
+          </HScroll>
+        </View>
+      )}
 
       <View style={{ gap: space.md }}>
         <Txt v="h3" style={{ paddingHorizontal: space.lg }}>

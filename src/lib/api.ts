@@ -2,7 +2,7 @@
  * Supabase data access. Maps database rows to the app's types.
  * Only used when the backend is configured (see src/lib/supabase.ts).
  */
-import type { AppNotification, Booking, Match, PendingPitch, Pitch, PitchSubmissionInput, Player, TeamRow, Tournament } from '@/data/types';
+import type { AppNotification, Booking, DuesRow, Fixture, Highlight, Match, MatchEvent, PendingPitch, Pitch, PitchSubmissionInput, Player, RosterPlayer, TeamRow, Tournament, TournamentAward, TournamentFormat, Trophy } from '@/data/types';
 import { kwDateFromOffset, kwOffset, kwParts, kwTimestamp } from '@/i18n/format';
 import { supabase } from './supabase';
 
@@ -107,22 +107,47 @@ export async function fetchPlayers(ids: string[]): Promise<Player[]> {
   }));
 }
 
+export function mapFixture(f: Record<string, any>): Fixture {
+  const parts = f.starts_at ? kwParts(f.starts_at) : null;
+  return {
+    id: f.id,
+    homeId: f.home_id ?? undefined,
+    awayId: f.away_id ?? undefined,
+    startsAt: f.starts_at ?? undefined,
+    dayOffset: parts ? kwOffset(parts.dateISO) : 9999,
+    hour: parts ? parts.hour : 0,
+    score: f.home_score == null ? undefined : [f.home_score, f.away_score],
+    pens: f.pens_home == null ? undefined : [f.pens_home, f.pens_away],
+    stage: f.stage ?? 'league',
+    roundNo: f.round_no ?? 1,
+    groupLabel: f.group_label ?? undefined,
+    bracketPos: f.bracket_pos ?? undefined,
+    status: f.status ?? (f.home_score == null ? 'scheduled' : 'played'),
+    mvpId: f.mvp_id ?? undefined,
+  };
+}
+
 export async function fetchTournaments(): Promise<Tournament[]> {
   const { data, error } = await db().from('tournaments').select('*, tournament_teams(*), fixtures(*)').order('starts_on');
   if (error) throw error;
   return (data ?? []).map((r) => {
-    const teams: TeamRow[] = (r.tournament_teams ?? []).map((tm: Record<string, any>) => ({
-      id: tm.id,
-      name: { ar: tm.name_ar, en: tm.name_en },
-      played: tm.played,
-      won: tm.won,
-      drawn: tm.drawn,
-      lost: tm.lost,
-      gf: tm.gf,
-      ga: tm.ga,
-      color: tm.color,
-      captainId: tm.captain_id ?? undefined,
-    }));
+    const teams: TeamRow[] = (r.tournament_teams ?? [])
+      .map((tm: Record<string, any>) => ({
+        id: tm.id,
+        name: { ar: tm.name_ar, en: tm.name_en },
+        played: tm.played,
+        won: tm.won,
+        drawn: tm.drawn,
+        lost: tm.lost,
+        gf: tm.gf,
+        ga: tm.ga,
+        color: tm.color,
+        captainId: tm.captain_id ?? undefined,
+        status: tm.status ?? 'approved',
+        paid: !!tm.paid,
+        groupLabel: tm.group_label ?? undefined,
+      }))
+      .sort((a: TeamRow & { status?: string }, b: TeamRow) => a.name.ar.localeCompare(b.name.ar));
     return {
       id: r.id,
       name: { ar: r.name_ar, en: r.name_en },
@@ -130,24 +155,24 @@ export async function fetchTournaments(): Promise<Tournament[]> {
       format: r.format,
       status: r.status,
       startOffset: kwOffset(r.starts_on),
+      startsOn: r.starts_on,
       maxTeams: r.max_teams,
       entryFee: Number(r.entry_fee),
       prize: Number(r.prize),
+      prizeSecond: Number(r.prize_second ?? 0),
+      organizerId: r.organizer_id ?? undefined,
+      formatType: r.format_type ?? 'league',
+      groupsCount: r.groups_count ?? 2,
+      minPlayers: r.min_players ?? 5,
+      maxPlayers: r.max_players ?? 10,
+      ageCategory: r.age_category ?? 'open',
+      rules: r.rules ?? '',
+      commissionRate: Number(r.commission_rate ?? 0),
+      rejectReason: r.reject_reason ?? '',
+      finishedAt: r.finished_at ?? undefined,
       tint: [r.tint[0], r.tint[1] ?? r.tint[0]],
       teams,
-      fixtures: (r.fixtures ?? [])
-        .map((f: Record<string, any>) => {
-          const { dateISO, hour } = kwParts(f.starts_at);
-          return {
-            id: f.id,
-            homeId: f.home_id,
-            awayId: f.away_id,
-            dayOffset: kwOffset(dateISO),
-            hour,
-            score: f.home_score == null ? undefined : ([f.home_score, f.away_score] as [number, number]),
-          };
-        })
-        .sort((a: { dayOffset: number; hour: number }, b: { dayOffset: number; hour: number }) => a.dayOffset * 24 + a.hour - (b.dayOffset * 24 + b.hour)),
+      fixtures: (r.fixtures ?? []).map(mapFixture).sort((a: Fixture, b: Fixture) => (a.startsAt ?? '9').localeCompare(b.startsAt ?? '9') || (a.roundNo ?? 0) - (b.roundNo ?? 0) || (a.bracketPos ?? 0) - (b.bracketPos ?? 0)),
     } as Tournament;
   });
 }
@@ -394,4 +419,118 @@ export async function registerPushToken(token: string, platform: string, lang: s
 
 export async function unregisterPushToken(token: string) {
   await db().rpc('unregister_push_token', { p_token: token });
+}
+
+/* ---------- tournaments ---------- */
+
+const rpc = async <T = unknown>(fn: string, args?: Record<string, unknown>): Promise<T> => {
+  const { data, error } = await db().rpc(fn, args);
+  if (error) throw error;
+  return data as T;
+};
+
+export interface TournamentInput {
+  name: string;
+  pitchId: string;
+  format: 5 | 7 | 11;
+  formatType: TournamentFormat;
+  groupsCount: number;
+  startsOn: string;
+  maxTeams: number;
+  minPlayers: number;
+  maxPlayers: number;
+  ageCategory: string;
+  entryFee: number;
+  prize: number;
+  prizeSecond: number;
+  rules: string;
+}
+
+export async function createTournament(p: TournamentInput): Promise<string> {
+  const row = await rpc<{ id: string }>('create_tournament', {
+    p_name: p.name, p_pitch: p.pitchId, p_format: p.format, p_type: p.formatType, p_groups: p.groupsCount, p_starts_on: p.startsOn,
+    p_max_teams: p.maxTeams, p_min_players: p.minPlayers, p_max_players: p.maxPlayers, p_age: p.ageCategory, p_fee: p.entryFee,
+    p_prize: p.prize, p_prize2: p.prizeSecond, p_rules: p.rules,
+  });
+  return row.id;
+}
+export const adminReviewTournament = (id: string, approve: boolean, reason = '') => rpc('admin_review_tournament', { p_t: id, p_approve: approve, p_reason: reason });
+export const teamInviteCode = (teamId: string) => rpc<string>('team_invite_code', { p_team: teamId });
+export const joinTeamByCode = (code: string) => rpc<string>('join_team_by_code', { p_code: code });
+export const removeTeamPlayer = (teamId: string, userId: string) => rpc('remove_team_player', { p_team: teamId, p_user: userId });
+export const organizerReviewTeam = (teamId: string, status: string, paid: boolean | null) => rpc('organizer_review_team', { p_team: teamId, p_status: status, p_paid: paid });
+export const closeRegistration = (id: string) => rpc('close_registration', { p_t: id });
+export const generateFixtures = (id: string, start: string, days: number[], startHour: number) => rpc<number>('generate_fixtures', { p_t: id, p_start: start, p_days: days, p_start_hour: startHour });
+export const rescheduleFixture = (fixtureId: string, startsAt: string) => rpc('reschedule_fixture', { p_fixture: fixtureId, p_starts: startsAt });
+export const recordResult = (fixtureId: string, home: number, away: number, pens: [number, number] | null, events: { team_id: string; player_id?: string; kind: string; minute?: number }[], mvp: string | null) =>
+  rpc('record_fixture_result', { p_fixture: fixtureId, p_home: home, p_away: away, p_pens_home: pens?.[0] ?? null, p_pens_away: pens?.[1] ?? null, p_events: events, p_mvp: mvp });
+export const recordWalkover = (fixtureId: string, winner: string) => rpc('record_walkover', { p_fixture: fixtureId, p_winner: winner });
+export const withdrawTeam = (teamId: string) => rpc('withdraw_team', { p_team: teamId });
+export const cancelTournament = (id: string) => rpc('cancel_tournament', { p_t: id });
+export const setAward = (id: string, kind: 'best_player' | 'best_keeper', userId: string | null) => rpc('set_award', { p_t: id, p_kind: kind, p_user: userId });
+export const toggleHighlightLike = (id: string) => rpc<boolean>('toggle_highlight_like', { p_id: id });
+export const markDues = (id: string, paid: boolean) => rpc('admin_mark_dues', { p_t: id, p_paid: paid });
+export const setCommission = (rate: number | null, pitchId?: string) => rpc('admin_set_commission', { p_rate: rate, p_pitch: pitchId ?? null });
+export const commissionRateFor = async (pitchId: string) => Number(await rpc<number>('commission_rate_for', { p_pitch: pitchId }));
+
+export async function appSettings(): Promise<{ commissionRate: number; clipRetentionDays: number }> {
+  const { data } = await db().from('app_settings').select('*');
+  const m = new Map((data ?? []).map((r: { key: string; value: unknown }) => [r.key, Number(r.value)]));
+  return { commissionRate: m.get('commission_rate') ?? 0.05, clipRetentionDays: m.get('clip_retention_days') ?? 14 };
+}
+
+export async function fetchTournamentDetail(id: string, userId?: string) {
+  const c = db();
+  const [roster, events, clips, awards, susp, likes] = await Promise.all([
+    c.from('team_players').select('team_id, user_id, profiles(name, avatar_url)').eq('tournament_id', id),
+    c.from('match_events').select('*').eq('tournament_id', id),
+    c.from('highlights').select('*').eq('tournament_id', id).order('created_at', { ascending: false }),
+    c.from('tournament_awards').select('*').eq('tournament_id', id),
+    c.rpc('tournament_suspensions', { p_t: id }),
+    userId ? c.from('highlight_likes').select('highlight_id') : Promise.resolve({ data: [] as { highlight_id: string }[] }),
+  ]);
+  const players: RosterPlayer[] = (roster.data ?? []).map((r: Record<string, any>) => ({ teamId: r.team_id, userId: r.user_id, name: r.profiles?.name ?? '', avatarUrl: r.profiles?.avatar_url ?? undefined }));
+  const ev: MatchEvent[] = (events.data ?? []).map((e: Record<string, any>) => ({ id: e.id, fixtureId: e.fixture_id, teamId: e.team_id, playerId: e.player_id ?? undefined, kind: e.kind, minute: e.minute ?? undefined }));
+  const hl: Highlight[] = (clips.data ?? []).map((h: Record<string, any>) => ({
+    id: h.id, fixtureId: h.fixture_id, playerId: h.player_id ?? undefined, path: h.path, likes: h.likes, at: Date.parse(h.created_at),
+    url: c.storage.from('highlights').getPublicUrl(h.path).data.publicUrl,
+  }));
+  const aw: TournamentAward[] = (awards.data ?? []).map((a: Record<string, any>) => ({ kind: a.kind, teamId: a.team_id ?? undefined, userId: a.user_id ?? undefined, value: a.value ?? undefined }));
+  const suspensions = ((susp.data ?? []) as { user_id: string; team_id: string; fixture_id: string }[]).map((s) => ({ userId: s.user_id, teamId: s.team_id, fixtureId: s.fixture_id }));
+  return { players, events: ev, highlights: hl, awards: aw, suspensions, liked: new Set(((likes.data ?? []) as { highlight_id: string }[]).map((l) => l.highlight_id)) };
+}
+
+/** Uploads a clip to storage under <tournament>/<fixture>/ and registers it. */
+export async function uploadHighlight(tournamentId: string, fixtureId: string, localUri: string, playerId: string | null) {
+  const res = await fetch(localUri);
+  const body = await res.arrayBuffer();
+  const type = res.headers.get('content-type') || 'video/mp4';
+  const ext = type.includes('quicktime') ? 'mov' : type.includes('webm') ? 'webm' : 'mp4';
+  const path = `${tournamentId}/${fixtureId}/${Date.now()}.${ext}`;
+  const { error } = await db().storage.from('highlights').upload(path, body, { contentType: type, upsert: false });
+  if (error) throw error;
+  try {
+    await rpc('add_highlight', { p_fixture: fixtureId, p_path: path, p_player: playerId });
+  } catch (e) {
+    await db().storage.from('highlights').remove([path]);
+    throw e;
+  }
+}
+
+export async function deleteHighlight(id: string) {
+  const path = await rpc<string>('delete_highlight', { p_id: id });
+  if (path) await db().storage.from('highlights').remove([path]);
+}
+
+export async function fetchDues(mine: boolean): Promise<DuesRow[]> {
+  const data = await rpc<Record<string, any>[]>('tournament_dues_list', { p_mine: mine });
+  return (data ?? []).map((r) => ({
+    tournamentId: r.tournament_id, name: { ar: r.name_ar, en: r.name_en }, organizerId: r.organizer_id, organizerName: r.organizer_name, status: r.status,
+    entryFee: Number(r.entry_fee), paidTeams: r.paid_teams, rate: Number(r.rate), amount: Number(r.amount), settled: r.settled, finishedAt: r.finished_at ?? undefined,
+  }));
+}
+
+export async function fetchTrophies(userId: string): Promise<Trophy[]> {
+  const data = await rpc<Record<string, any>[]>('player_trophies', { p_user: userId });
+  return (data ?? []).map((r) => ({ tournamentId: r.tournament_id, name: { ar: r.name_ar, en: r.name_en }, kind: r.kind, value: r.value ?? undefined }));
 }

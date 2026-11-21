@@ -8,7 +8,7 @@ import { statusBadge } from '@/components/cards';
 import { Sheet, useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Avatar, Badge, Button, Card, Chip, Divider, EmptyState, HScroll, IconButton, Row, Tap, Txt, useDir, webNoOutline, type IconName } from '@/components/ui';
-import type { PendingPitch, Tournament } from '@/data/types';
+import type { DuesRow, PendingPitch, Tournament } from '@/data/types';
 import * as api from '@/lib/api';
 import { ME_ID } from '@/data/seed';
 import { formatDay, formatHour, fromISODate } from '@/i18n/format';
@@ -19,13 +19,14 @@ import { useApp } from '@/store/AppStore';
 import { ticketStatusStyle, useSupport, type TicketStatus } from '@/store/support';
 import { colors, fonts, radius, space } from '@/theme';
 
-type Tab = 'overview' | 'users' | 'pitches' | 'bookings' | 'tournaments' | 'academies' | 'support' | 'announcements';
+type Tab = 'overview' | 'users' | 'pitches' | 'bookings' | 'tournaments' | 'dues' | 'academies' | 'support' | 'announcements';
 const TABS: { key: Tab; label: StringKey; icon: IconName }[] = [
   { key: 'overview', label: 'adminOverview', icon: 'speedometer-outline' },
   { key: 'users', label: 'adminUsers', icon: 'people-outline' },
   { key: 'pitches', label: 'adminPitches', icon: 'football-outline' },
   { key: 'bookings', label: 'adminBookings', icon: 'calendar-outline' },
   { key: 'tournaments', label: 'adminTournaments', icon: 'trophy-outline' },
+  { key: 'dues', label: 'duesTab', icon: 'cash-outline' },
   { key: 'academies', label: 'adminAcademies', icon: 'school-outline' },
   { key: 'support', label: 'adminSupport', icon: 'headset-outline' },
   { key: 'announcements', label: 'adminAnnouncements', icon: 'megaphone-outline' },
@@ -62,6 +63,7 @@ export default function AdminDashboard() {
         {tab === 'pitches' && <Pitches />}
         {tab === 'bookings' && <Bookings />}
         {tab === 'tournaments' && <Tournaments />}
+        {tab === 'dues' && <Dues />}
         {tab === 'academies' && <AcademiesPanel />}
         {tab === 'support' && <SupportInbox />}
         {tab === 'announcements' && <Announcements />}
@@ -397,32 +399,71 @@ function Bookings() {
 }
 
 function Tournaments() {
-  const { t, l, money, tournaments, pitches, errText } = useApp();
-  const { setTournamentStatus, createTournament } = useAdmin();
+  const { t, l, money, tournaments, errText, getPitch, refresh, mode } = useApp();
+  const { setTournamentStatus } = useAdmin();
   const toast = useToast();
-  const [form, setForm] = useState<{ name: string; pitchId: string; format: 5 | 7 | 11; startOffset: number; maxTeams: number; fee: number; prize: number } | null>(null);
+  const pending = tournaments.filter((tr) => tr.status === 'pending');
+  const rest = tournaments.filter((tr) => tr.status !== 'pending');
+  const review = async (id: string, approve: boolean) => {
+    if (mode !== 'live') return toast(errText('live_only'), 'error');
+    try {
+      await api.adminReviewTournament(id, approve);
+      await refresh();
+      toast(approve ? t('tournamentApprovedToast') : t('listingRejected'), approve ? 'success' : 'info');
+    } catch (e) {
+      toast(errText(api.errorCode(e)), 'error');
+    }
+  };
   return (
     <>
-      <Button title={t('newTournament')} icon="add" onPress={() => setForm({ name: '', pitchId: pitches[0]?.id ?? '', format: 5, startOffset: 14, maxTeams: 8, fee: 60, prize: 500 })} />
-      {tournaments.map((tr) => (
-        <Card key={tr.id} style={{ gap: space.sm }}>
-          <Row justify="space-between">
-            <Txt v="h3" style={{ flex: 1 }}>
-              {l(tr.name)}
-            </Txt>
-            <View style={{ transform: [{ scale: 0.95 }] }}>{statusBadge(tr.status, t)}</View>
+      <Button title={t('newTournament')} icon="add" onPress={() => router.push('/tournament/new')} />
+      {pending.length > 0 && (
+        <View style={{ gap: space.sm }}>
+          <Row gap={8}>
+            <Ionicons name="time-outline" size={18} color={colors.warning} />
+            <Txt v="h3">{t('pendingTournaments', { n: pending.length })}</Txt>
           </Row>
-          <Txt v="caption" color={colors.textMuted}>
-            {t('teamsCount', { n: tr.teams.length, max: tr.maxTeams })} · {money(tr.prize)}
-          </Txt>
-          <Row gap={6}>
-            {(['open', 'live', 'finished'] as Tournament['status'][]).map((s) => (
+          {pending.map((tr) => (
+            <Card key={tr.id} style={{ gap: space.sm, borderWidth: 1, borderColor: colors.warning }}>
+              <Txt v="h3">{l(tr.name)}</Txt>
+              <Txt v="caption" color={colors.textMuted}>
+                {l(getPitch(tr.pitchId).name)} · {t(`fmt_${tr.formatType ?? 'league'}`)} · {t('aSide', { n: tr.format })} · {tr.maxTeams} {t('teams')}
+              </Txt>
+              <Txt v="caption" color={colors.textMuted}>
+                {t('entryFee')}: {money(tr.entryFee)} · {t('prize')}: {money(tr.prize)}
+                {tr.prizeSecond ? ` / ${money(tr.prizeSecond)}` : ''} · {t('organizingFeePct', { pct: Math.round((tr.commissionRate ?? 0) * 100) })}
+              </Txt>
+              {!!tr.rules && <Txt v="caption">{tr.rules}</Txt>}
+              <Row gap={space.sm}>
+                <Button title={t('approve')} small icon="checkmark" style={{ flex: 1 }} onPress={() => review(tr.id, true)} />
+                <Button title={t('reject')} small kind="danger" icon="close" style={{ flex: 1 }} onPress={() => review(tr.id, false)} />
+              </Row>
+            </Card>
+          ))}
+          <Divider />
+        </View>
+      )}
+      {rest.map((tr) => (
+        <Card key={tr.id} style={{ gap: space.sm }}>
+          <Tap onPress={() => router.push(`/tournament/manage/${tr.id}`)} scale={0.99}>
+            <Row justify="space-between">
+              <Txt v="h3" style={{ flex: 1 }}>
+                {l(tr.name)}
+              </Txt>
+              <View style={{ transform: [{ scale: 0.95 }] }}>{statusBadge(tr.status, t)}</View>
+            </Row>
+            <Txt v="caption" color={colors.textMuted}>
+              {t('teamsCount', { n: tr.teams.filter((tm) => tm.status !== 'rejected' && tm.status !== 'withdrawn').length, max: tr.maxTeams })} · {money(tr.prize)}
+            </Txt>
+          </Tap>
+          <Row gap={6} wrap>
+            {(['open', 'closed', 'live', 'finished'] as Tournament['status'][]).map((st) => (
               <Chip
-                key={s}
-                label={t(`status_${s}`)}
-                selected={tr.status === s}
+                key={st}
+                label={t(`status_${st}`)}
+                selected={tr.status === st}
                 onPress={async () => {
-                  const r = await setTournamentStatus(tr.id, s);
+                  const r = await setTournamentStatus(tr.id, st);
                   toast(r.ok ? t('statusUpdated') : errText(r.error), r.ok ? 'success' : 'error');
                 }}
               />
@@ -430,63 +471,76 @@ function Tournaments() {
           </Row>
         </Card>
       ))}
-      <Sheet visible={!!form} onClose={() => setForm(null)} title={t('newTournament')}>
-        {form && (
-          <ScrollView style={{ maxHeight: 560 }} contentContainerStyle={{ gap: space.lg }} keyboardShouldPersistTaps="handled">
-            <View style={{ gap: 6 }}>
-              <Txt v="label" color={colors.textMuted}>{t('tournamentName')}</Txt>
-              <TextInput value={form.name} onChangeText={(v) => setForm({ ...form, name: v })} style={{ height: 50, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: space.lg, fontFamily: fonts.medium, fontSize: 16, color: colors.text, ...webNoOutline }} />
-            </View>
-            <View style={{ gap: 6 }}>
-              <Txt v="label" color={colors.textMuted}>{t('choosePitch')}</Txt>
-              <Row gap={6} wrap>
-                {pitches.map((p) => (
-                  <Chip key={p.id} label={l(p.name)} selected={form.pitchId === p.id} onPress={() => setForm({ ...form, pitchId: p.id })} />
-                ))}
-              </Row>
-            </View>
-            <View style={{ gap: 6 }}>
-              <Txt v="label" color={colors.textMuted}>{t('format')}</Txt>
-              <Row gap={6}>
-                {([5, 7, 11] as const).map((f) => (
-                  <Chip key={f} label={`${f}×${f}`} selected={form.format === f} onPress={() => setForm({ ...form, format: f })} />
-                ))}
-              </Row>
-            </View>
-            <Row gap={space.md}>
-              <View style={{ flex: 1, gap: 6 }}>
-                <Txt v="label" color={colors.textMuted}>{t('startsAfterDays')}</Txt>
-                <Stepper value={form.startOffset} onChange={(v) => setForm({ ...form, startOffset: v })} min={1} max={120} />
-              </View>
-              <View style={{ flex: 1, gap: 6 }}>
-                <Txt v="label" color={colors.textMuted}>{t('maxTeams')}</Txt>
-                <Stepper value={form.maxTeams} onChange={(v) => setForm({ ...form, maxTeams: v })} min={2} max={64} />
-              </View>
+    </>
+  );
+}
+
+/** Organising fees owed by pitch owners for their tournaments, and the fee rate. */
+function Dues() {
+  const { t, l, money, mode, errText } = useApp();
+  const toast = useToast();
+  const [rows, setRows] = useState<DuesRow[]>([]);
+  const [rate, setRate] = useState(5);
+  const load = useCallback(() => {
+    if (mode !== 'live') return;
+    api.fetchDues(false).then(setRows).catch(() => {});
+    api.appSettings().then((s) => setRate(Math.round(s.commissionRate * 100))).catch(() => {});
+  }, [mode]);
+  useEffect(load, [load]);
+  const owed = rows.filter((r) => !r.settled).reduce((s, r) => s + r.amount, 0);
+  const collected = rows.filter((r) => r.settled).reduce((s, r) => s + r.amount, 0);
+  const saveRate = async (v: number) => {
+    setRate(v);
+    try {
+      await api.setCommission(v / 100);
+    } catch (e) {
+      toast(errText(api.errorCode(e)), 'error');
+    }
+  };
+  return (
+    <>
+      <Card style={{ gap: space.sm }}>
+        <Txt v="label" color={colors.textMuted}>{t('commissionRate')}</Txt>
+        <Stepper value={rate} onChange={saveRate} min={0} max={50} format={(v) => `${v}%`} />
+      </Card>
+      <Row gap={space.md}>
+        <Card style={{ flex: 1, gap: 4 }}>
+          <Txt v="tiny" color={colors.textMuted}>{t('duesOwed')}</Txt>
+          <Txt v="h2" color={colors.warning}>{money(owed)}</Txt>
+        </Card>
+        <Card style={{ flex: 1, gap: 4 }}>
+          <Txt v="tiny" color={colors.textMuted}>{t('duesCollected')}</Txt>
+          <Txt v="h2" color={colors.success}>{money(collected)}</Txt>
+        </Card>
+      </Row>
+      {rows.length === 0 ? (
+        <EmptyState icon="cash-outline" title={t('noDues')} />
+      ) : (
+        rows.map((r) => (
+          <Card key={r.tournamentId} style={{ gap: 6 }}>
+            <Row justify="space-between" gap={space.sm}>
+              <Txt v="bodyStrong" style={{ flex: 1 }} numberOfLines={1}>{l(r.name)}</Txt>
+              <Txt v="h3" color={r.settled ? colors.success : colors.text}>{money(r.amount)}</Txt>
             </Row>
-            <Row gap={space.md}>
-              <View style={{ flex: 1, gap: 6 }}>
-                <Txt v="label" color={colors.textMuted}>{t('entryFee')}</Txt>
-                <Stepper value={form.fee} onChange={(v) => setForm({ ...form, fee: v })} min={0} max={1000} step={5} format={money} />
-              </View>
-              <View style={{ flex: 1, gap: 6 }}>
-                <Txt v="label" color={colors.textMuted}>{t('prize')}</Txt>
-                <Stepper value={form.prize} onChange={(v) => setForm({ ...form, prize: v })} min={0} max={20000} step={50} format={money} />
-              </View>
-            </Row>
-            <Button
-              title={t('save')}
-              icon="checkmark-circle"
-              disabled={form.name.trim().length < 3 || !form.pitchId}
+            <Txt v="caption" color={colors.textMuted}>
+              {r.organizerName} · {t(`status_${r.status}`)} · {t('paidTeamsN', { n: r.paidTeams })} × {money(r.entryFee)} × {Math.round(r.rate * 100)}%
+            </Txt>
+            <Chip
+              label={r.settled ? t('settled') : t('markSettled')}
+              icon="cash-outline"
+              selected={r.settled}
               onPress={async () => {
-                const r = await createTournament({ ...form, name: form.name.trim() });
-                if (!r.ok) return toast(errText(r.error), 'error');
-                setForm(null);
-                toast(t('tournamentCreated'));
+                try {
+                  await api.markDues(r.tournamentId, !r.settled);
+                  load();
+                } catch (e) {
+                  toast(errText(api.errorCode(e)), 'error');
+                }
               }}
             />
-          </ScrollView>
-        )}
-      </Sheet>
+          </Card>
+        ))
+      )}
     </>
   );
 }

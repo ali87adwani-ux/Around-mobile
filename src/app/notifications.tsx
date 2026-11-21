@@ -24,6 +24,21 @@ const ICONS: Record<string, IconName> = {
   academy_approved: 'school',
   academy_rejected: 'alert-circle',
   announcement: 'megaphone',
+  team_registered: 'shield',
+  team_joined: 'person-add',
+  team_approved: 'shield-checkmark',
+  team_rejected: 'close-circle',
+  team_paid: 'cash',
+  team_withdrew: 'flag',
+  tournament_approved: 'trophy',
+  tournament_rejected: 'alert-circle',
+  tournament_finished: 'trophy',
+  tournament_cancelled: 'close-circle',
+  schedule_published: 'calendar',
+  fixture_result: 'football',
+  fixture_reminder: 'alarm',
+  highlight: 'videocam',
+  award: 'ribbon',
 };
 
 function ago(at: number, lang: 'ar' | 'en') {

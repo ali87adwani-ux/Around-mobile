@@ -79,24 +79,52 @@ export interface TeamRow {
   ga: number;
   color: string;
   captainId?: string;
+  status?: 'pending' | 'approved' | 'rejected' | 'withdrawn';
+  paid?: boolean;
+  groupLabel?: string;
 }
 
 export interface Fixture {
   id: string;
-  homeId: string;
-  awayId: string;
+  /** Empty until the team is known (later knockout rounds). */
+  homeId?: string;
+  awayId?: string;
+  /** Kick-off; empty until the schedule is generated. */
+  startsAt?: string;
   dayOffset: number;
   hour: number;
   score?: [number, number];
+  pens?: [number, number];
+  stage?: 'league' | 'group' | 'knockout';
+  roundNo?: number;
+  groupLabel?: string;
+  bracketPos?: number;
+  status?: 'scheduled' | 'played' | 'walkover' | 'bye';
+  mvpId?: string;
 }
+
+export type TournamentStatus = 'pending' | 'open' | 'closed' | 'live' | 'finished' | 'rejected' | 'cancelled';
+export type TournamentFormat = 'league' | 'knockout' | 'groups';
 
 export interface Tournament {
   id: string;
   name: L10n;
   pitchId: string;
   format: 5 | 7 | 11;
-  status: 'open' | 'live' | 'finished';
+  status: TournamentStatus;
   startOffset: number;
+  startsOn?: string;
+  organizerId?: string;
+  formatType?: TournamentFormat;
+  groupsCount?: number;
+  minPlayers?: number;
+  maxPlayers?: number;
+  ageCategory?: string;
+  prizeSecond?: number;
+  rules?: string;
+  commissionRate?: number;
+  rejectReason?: string;
+  finishedAt?: string;
   maxTeams: number;
   entryFee: number;
   prize: number;
@@ -161,4 +189,58 @@ export interface PendingPitch {
   phone: string;
   note: string;
   at: number;
+}
+
+export interface RosterPlayer {
+  teamId: string;
+  userId: string;
+  name: string;
+  avatarUrl?: string;
+}
+
+export interface MatchEvent {
+  id: string;
+  fixtureId: string;
+  teamId: string;
+  playerId?: string;
+  kind: 'goal' | 'own_goal' | 'yellow' | 'red';
+  minute?: number;
+}
+
+export interface Highlight {
+  id: string;
+  fixtureId: string;
+  playerId?: string;
+  url: string;
+  path: string;
+  likes: number;
+  at: number;
+}
+
+export interface TournamentAward {
+  kind: 'champion' | 'runner_up' | 'top_scorer' | 'best_player' | 'best_keeper';
+  teamId?: string;
+  userId?: string;
+  value?: number;
+}
+
+export interface DuesRow {
+  tournamentId: string;
+  name: L10n;
+  organizerId: string;
+  organizerName: string;
+  status: TournamentStatus;
+  entryFee: number;
+  paidTeams: number;
+  rate: number;
+  amount: number;
+  settled: boolean;
+  finishedAt?: string;
+}
+
+export interface Trophy {
+  tournamentId: string;
+  name: L10n;
+  kind: TournamentAward['kind'];
+  value?: number;
 }
