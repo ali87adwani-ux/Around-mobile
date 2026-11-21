@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { FlatList, View } from 'react-native';
+import { FlatList, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MatchCard } from '@/components/cards';
 import { Chip, EmptyState, HScroll, Row, Segmented, Tap, Txt, useDir } from '@/components/ui';
@@ -11,7 +11,7 @@ import { useApp } from '@/store/AppStore';
 import { colors, radius, shadow, space } from '@/theme';
 
 export default function Matches() {
-  const { t, lang, allMatches, isJoined } = useApp();
+  const { t, lang, allMatches, isJoined, refresh, mode, loading } = useApp();
   const insets = useSafeAreaInsets();
   const d = useDir();
   const [tab, setTab] = useState<'discover' | 'mine'>('discover');
@@ -55,6 +55,7 @@ export default function Matches() {
         )}
       </View>
       <FlatList
+        refreshControl={mode === 'live' ? <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.primary} /> : undefined}
         data={list}
         keyExtractor={(m) => m.id}
         renderItem={({ item }) => <MatchCard match={item} />}

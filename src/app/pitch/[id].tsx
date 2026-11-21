@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -27,7 +27,7 @@ const sizeMultiplier: Record<PitchSize, number> = { 5: 1, 7: 1.5, 11: 2.4 };
 
 export default function PitchScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t, l, lang, money, getPitch, bookedHours, dispatch } = useApp();
+  const { t, l, lang, money, getPitch, bookedHours, loadBusy, bookPitch, errText } = useApp();
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const pitch = getPitch(id);
@@ -42,6 +42,9 @@ export default function PitchScreen() {
 
   const date = dateFromOffset(dayOff);
   const iso = toISODate(date);
+  useEffect(() => {
+    loadBusy(pitch.id, iso);
+  }, [loadBusy, pitch.id, iso]);
   const booked = useMemo(() => bookedHours(pitch.id, iso), [bookedHours, pitch.id, iso]);
   const nowH = new Date().getHours() + 1;
   const labels = { today: t('today'), tomorrow: t('tomorrow') };
@@ -58,19 +61,21 @@ export default function PitchScreen() {
 
   const price = Math.round(pitch.pricePerHour * sizeMultiplier[size] * duration * 2) / 2;
 
-  const confirm = () => {
+  const confirm = async () => {
     if (hour == null) return;
     setLoading(true);
-    setTimeout(() => {
-      dispatch({
-        type: 'addBooking',
-        booking: { id: `b${Date.now()}`, pitchId: pitch.id, dateISO: iso, hour, duration, size, total: price, status: 'confirmed', createdAt: Date.now() },
-      });
-      setLoading(false);
-      setSummary(false);
-      haptic.success();
-      setTimeout(() => setSuccess(true), 250);
-    }, 700);
+    const r = await bookPitch({ pitchId: pitch.id, dateISO: iso, hour, duration, size, total: price });
+    setLoading(false);
+    setSummary(false);
+    if (!r.ok) {
+      haptic.warn();
+      toast(errText(r.error), 'error');
+      setHour(null);
+      loadBusy(pitch.id, iso);
+      return;
+    }
+    haptic.success();
+    setTimeout(() => setSuccess(true), 250);
   };
 
   return (

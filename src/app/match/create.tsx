@@ -1,12 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '@/components/overlays';
 import { Button, Chip, HScroll, IconButton, PitchArt, Row, Tap, Txt, haptic } from '@/components/ui';
-import { ME_ID } from '@/data/seed';
-import type { Level, Match } from '@/data/types';
+import type { Level } from '@/data/types';
 import { dateFromOffset, formatDuration, formatHour, toISODate, weekdayShort } from '@/i18n/format';
 import { useApp } from '@/store/AppStore';
 import { colors, radius, shadow, space } from '@/theme';
@@ -24,7 +23,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function CreateMatch() {
   const params = useLocalSearchParams<{ pitchId?: string; dayOffset?: string; hour?: string }>();
-  const { t, l, lang, money, pitches, getPitch, bookedHours, dispatch, state } = useApp();
+  const { t, l, lang, money, pitches, getPitch, bookedHours, loadBusy, createMatch, errText, state } = useApp();
   const toast = useToast();
   const insets = useSafeAreaInsets();
 
@@ -39,6 +38,9 @@ export default function CreateMatch() {
   const fromBooking = !!params.hour;
 
   const iso = toISODate(dateFromOffset(dayOff));
+  useEffect(() => {
+    loadBusy(pitchId, iso);
+  }, [loadBusy, pitchId, iso]);
   const booked = useMemo(() => bookedHours(pitchId, iso), [bookedHours, pitchId, iso]);
   const nowH = new Date().getHours() + 1;
   const slots = useMemo(() => {
@@ -56,26 +58,21 @@ export default function CreateMatch() {
   // Round each player's share up to the nearest quarter dinar.
   const perPlayer = Math.ceil(((pitch.pricePerHour * mult[format] * duration) / maxPlayers) * 4) / 4;
 
-  const publish = () => {
+  const [publishing, setPublishing] = useState(false);
+  const publish = async () => {
     if (hour == null) return;
-    const m: Match = {
-      id: `c${Date.now()}`,
-      pitchId,
-      dayOffset: dayOff,
-      hour,
-      duration,
-      format,
-      level,
-      pricePerPlayer: perPlayer,
-      maxPlayers,
-      playerIds: [ME_ID],
-      organizerId: ME_ID,
-      createdByMe: true,
-    };
-    dispatch({ type: 'createMatch', match: m });
+    setPublishing(true);
+    const r = await createMatch({ pitchId, dayOffset: dayOff, hour, duration, format, level, pricePerPlayer: perPlayer });
+    setPublishing(false);
+    if (!r.ok) {
+      toast(errText(r.error), 'error');
+      setHour(null);
+      loadBusy(pitchId, iso);
+      return;
+    }
     haptic.success();
     toast(t('gameCreated'));
-    router.replace(`/match/${m.id}`);
+    router.replace(`/match/${r.id}`);
   };
 
   return (
@@ -210,7 +207,7 @@ export default function CreateMatch() {
             {money(perPlayer)}
           </Txt>
         </Row>
-        <Button title={t('publishGame')} icon="megaphone" disabled={hour == null} onPress={publish} />
+        <Button title={t('publishGame')} icon="megaphone" disabled={hour == null} loading={publishing} onPress={publish} />
       </View>
     </View>
   );

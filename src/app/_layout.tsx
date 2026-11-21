@@ -18,9 +18,9 @@ if (Platform.OS !== 'web') {
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootNavigator() {
-  const { state } = useApp();
+  const { ready: storeReady, onboarded } = useApp();
   const [fontsLoaded] = useFonts({ IBMPlexSansArabic_400Regular, IBMPlexSansArabic_500Medium, IBMPlexSansArabic_600SemiBold, IBMPlexSansArabic_700Bold });
-  const ready = fontsLoaded && state.hydrated;
+  const ready = fontsLoaded && storeReady;
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {});
@@ -32,10 +32,10 @@ function RootNavigator() {
     <>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right' }}>
-        <Stack.Protected guard={!state.onboarded}>
+        <Stack.Protected guard={!onboarded}>
           <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
         </Stack.Protected>
-        <Stack.Protected guard={state.onboarded}>
+        <Stack.Protected guard={onboarded}>
           <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
           <Stack.Screen name="pitch/[id]" />
           <Stack.Screen name="match/[id]" />
@@ -44,6 +44,7 @@ function RootNavigator() {
           <Stack.Screen name="player/[id]" />
           <Stack.Screen name="bookings" />
           <Stack.Screen name="leaderboard" />
+          <Stack.Screen name="owner" />
         </Stack.Protected>
       </Stack>
     </>

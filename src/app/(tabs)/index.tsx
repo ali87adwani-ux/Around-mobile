@@ -16,7 +16,7 @@ type Upcoming = { key: string; kind: 'booking' | 'match'; when: number; title: s
 
 export default function Home() {
   const app = useApp();
-  const { t, l, lang, state, me, allMatches, pitches, tournaments, getPitch, isJoined } = app;
+  const { t, l, lang, state, me, allMatches, pitches, tournaments, getPitch, isJoined, myBookings } = app;
   const insets = useSafeAreaInsets();
   const d = useDir();
   const focused = useIsFocused();
@@ -24,7 +24,7 @@ export default function Home() {
 
   const upcoming: Upcoming[] = useMemo(() => {
     const items: Upcoming[] = [];
-    for (const b of state.bookings) {
+    for (const b of myBookings) {
       if (b.status !== 'confirmed') continue;
       const off = offsetOf(fromISODate(b.dateISO));
       if (off < 0) continue;
@@ -51,7 +51,7 @@ export default function Home() {
       });
     }
     return items.sort((a, b) => a.when - b.when);
-  }, [state.bookings, allMatches, state.joinedMatchIds, lang]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [myBookings, allMatches, lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const nearby = allMatches.filter((m) => m.dayOffset >= 0 && !isJoined(m.id)).slice(0, 5);
   const topPitches = [...pitches].sort((a, b) => b.rating - a.rating).slice(0, 4);
@@ -114,7 +114,7 @@ export default function Home() {
             {[
               [me.stats.matches, t('matchesPlayed')],
               [me.stats.goals, t('goals')],
-              [state.bookings.filter((x) => x.status === 'confirmed').length, t('bookingsCount')],
+              [myBookings.filter((x) => x.status === 'confirmed').length, t('bookingsCount')],
             ].map(([v, label], i) => (
               <View key={i} style={{ flex: 1, gap: 0, borderColor: 'rgba(255,255,255,0.12)', [d.isRTL ? 'borderRightWidth' : 'borderLeftWidth']: i === 0 ? 0 : 1, paddingHorizontal: i === 0 ? 0 : space.md }}>
                 <Txt v="h3" color={colors.white}>

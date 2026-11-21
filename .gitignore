@@ -9,3 +9,4 @@ android/
 .DS_Store
 dist-preview/
 preview/
+.env

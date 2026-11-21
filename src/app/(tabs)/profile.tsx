@@ -13,7 +13,7 @@ import { useApp } from '@/store/AppStore';
 import { colors, radius, space } from '@/theme';
 
 export default function Profile() {
-  const { t, me, state, dispatch, lang, pitches } = useApp();
+  const { t, me, state, dispatch, lang, pitches, myBookings, isOwner, mode, signOut, saveProfile, errText, allMatches, isJoined } = useApp();
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const d = useDir();
@@ -23,7 +23,8 @@ export default function Profile() {
   const [position, setPosition] = useState<Position>(state.profile.position);
   const [level, setLevel] = useState<Level>(state.profile.level);
 
-  const upcomingBookings = state.bookings.filter((b) => b.status === 'confirmed').length;
+  const upcomingBookings = myBookings.filter((b) => b.status === 'confirmed').length;
+  const joinedCount = allMatches.filter((m) => isJoined(m.id)).length;
   const favs = pitches.filter((p) => state.favorites.includes(p.id));
 
   const MenuItem = ({ icon, label, value, onPress, color = colors.text }: { icon: IconName; label: string; value?: string; onPress: () => void; color?: string }) => (
@@ -62,10 +63,26 @@ export default function Profile() {
         <Card style={{ paddingVertical: space.xs }}>
           <MenuItem icon="calendar-outline" label={t('myBookings')} value={upcomingBookings ? String(upcomingBookings) : undefined} onPress={() => router.push('/bookings')} />
           <Divider />
-          <MenuItem icon="football-outline" label={t('myGames')} value={state.joinedMatchIds.length ? String(state.joinedMatchIds.length) : undefined} onPress={() => router.push('/matches')} />
+          <MenuItem icon="football-outline" label={t('myGames')} value={joinedCount ? String(joinedCount) : undefined} onPress={() => router.push('/matches')} />
           <Divider />
           <MenuItem icon="podium-outline" label={t('leaderboard')} onPress={() => router.push('/leaderboard')} />
+          {isOwner && (
+            <>
+              <Divider />
+              <MenuItem icon="business-outline" label={t('ownerDashboard')} onPress={() => router.push('/owner')} />
+            </>
+          )}
         </Card>
+        {mode === 'demo' && (
+          <Tap onPress={() => dispatch({ type: 'setDemoOwner', on: !state.demoOwner })} scale={0.99} style={{ marginTop: space.sm }}>
+            <Row gap={space.sm} justify="center">
+              <Ionicons name={state.demoOwner ? 'checkbox' : 'square-outline'} size={20} color={colors.primary} />
+              <Txt v="caption" color={colors.textMuted}>
+                {t('ownerDemoToggle')}
+              </Txt>
+            </Row>
+          </Tap>
+        )}
       </View>
 
       <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
@@ -102,11 +119,19 @@ export default function Profile() {
 
       <View style={{ paddingHorizontal: space.lg, gap: space.sm, alignItems: 'center' }}>
         <Image source={require('../../../assets/brand/app-icon.png')} style={{ width: 48, height: 48 }} accessibilityLabel={t('appName')} />
-        <Tap onPress={() => setReset(true)} hitSlop={8}>
-          <Txt v="caption" color={colors.danger} center>
-            {t('resetApp')}
-          </Txt>
-        </Tap>
+        {mode === 'live' ? (
+          <Tap onPress={signOut} hitSlop={8}>
+            <Txt v="caption" color={colors.danger} center>
+              {t('signOut')}
+            </Txt>
+          </Tap>
+        ) : (
+          <Tap onPress={() => setReset(true)} hitSlop={8}>
+            <Txt v="caption" color={colors.danger} center>
+              {t('resetApp')}
+            </Txt>
+          </Tap>
+        )}
         <Txt v="tiny" color={colors.textFaint} center>
           {t('appName')} · {t('version', { v: Constants.expoConfig?.version ?? '1.0.0' })}
         </Txt>
@@ -138,8 +163,9 @@ export default function Profile() {
           <Button
             title={t('save')}
             disabled={!name.trim()}
-            onPress={() => {
-              dispatch({ type: 'updateProfile', profile: { name: name.trim(), position, level } });
+            onPress={async () => {
+              const r = await saveProfile({ name: name.trim(), position, level });
+              if (!r.ok) return toast(errText(r.error), 'error');
               setEdit(false);
               toast(t('save') + ' ✓');
             }}

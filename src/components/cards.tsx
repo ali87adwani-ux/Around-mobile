@@ -148,9 +148,9 @@ export function statusBadge(status: Tournament['status'], t: ReturnType<typeof u
 }
 
 export function TournamentCard({ tournament }: { tournament: Tournament }) {
-  const { l, t, money, state } = useApp();
-  const reg = state.registrations[tournament.id];
-  const teamsN = tournament.teams.length + (reg ? 1 : 0);
+  const { l, t, money, registrationFor } = useApp();
+  const reg = registrationFor(tournament.id);
+  const teamsN = tournament.teams.length;
   return (
     <Card onPress={() => router.push(`/tournament/${tournament.id}`)} style={{ padding: 0, overflow: 'hidden' }}>
       <PitchArt tint={tournament.tint} height={140} radiusSize={0}>

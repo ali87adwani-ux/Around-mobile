@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
-import { FlatList, TextInput, View } from 'react-native';
+import { FlatList, TextInput, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PitchCard } from '@/components/cards';
 import { Chip, EmptyState, HScroll, Row, Tap, Txt, webNoOutline } from '@/components/ui';
@@ -11,7 +11,7 @@ import { colors, fonts, radius, space } from '@/theme';
 type Sort = 'nearest' | 'cheapest' | 'top';
 
 export default function Pitches() {
-  const { t, l, pitches, isRTL, state } = useApp();
+  const { t, l, pitches, isRTL, state, refresh, mode, loading } = useApp();
   const insets = useSafeAreaInsets();
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<Sort>('nearest');
@@ -75,6 +75,7 @@ export default function Pitches() {
         </HScroll>
       </View>
       <FlatList
+        refreshControl={mode === 'live' ? <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.primary} /> : undefined}
         data={list}
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => <PitchCard pitch={item} />}

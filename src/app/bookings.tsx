@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { FlatList, View } from 'react-native';
+import { FlatList, View, RefreshControl } from 'react-native';
 import { ConfirmSheet, useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Badge, Button, Card, EmptyState, PitchArt, Row, Segmented, Txt } from '@/components/ui';
@@ -10,14 +10,14 @@ import { useApp } from '@/store/AppStore';
 import { colors, space } from '@/theme';
 
 export default function Bookings() {
-  const { t, l, lang, money, state, getPitch, dispatch } = useApp();
+  const { t, l, lang, money, myBookings, getPitch, cancelBooking, errText, refresh, mode, loading } = useApp();
   const toast = useToast();
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
   const [cancelId, setCancelId] = useState<string | null>(null);
   const labels = { today: t('today'), tomorrow: t('tomorrow') };
 
   const isUpcoming = (iso: string, status: string) => status === 'confirmed' && offsetOf(fromISODate(iso)) >= 0;
-  const list = state.bookings
+  const list = myBookings
     .filter((b) => (tab === 'upcoming' ? isUpcoming(b.dateISO, b.status) : !isUpcoming(b.dateISO, b.status)))
     .sort((a, b) => (a.dateISO + String(a.hour).padStart(2, '0')).localeCompare(b.dateISO + String(b.hour).padStart(2, '0')) * (tab === 'upcoming' ? 1 : -1));
 
@@ -35,6 +35,7 @@ export default function Bookings() {
         />
       </View>
       <FlatList
+        refreshControl={mode === 'live' ? <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.primary} /> : undefined}
         data={list}
         keyExtractor={(b) => b.id}
         contentContainerStyle={{ padding: space.lg, paddingTop: 0, gap: space.md }}
@@ -81,10 +82,13 @@ export default function Bookings() {
         confirmLabel={t('cancelBooking')}
         cancelLabel={t('back')}
         danger
-        onConfirm={() => {
-          if (cancelId) dispatch({ type: 'cancelBooking', id: cancelId });
+        onConfirm={async () => {
+          const id = cancelId;
           setCancelId(null);
-          toast(t('bookingCancelled'), 'info');
+          if (!id) return;
+          const r = await cancelBooking(id);
+          if (r.ok) toast(t('bookingCancelled'), 'info');
+          else toast(errText(r.error), 'error');
         }}
       />
     </View>

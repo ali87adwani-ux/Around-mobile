@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FlatList, View } from 'react-native';
+import { FlatList, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TournamentCard } from '@/components/cards';
 import { Chip, EmptyState, HScroll, Txt } from '@/components/ui';
@@ -8,7 +8,7 @@ import { useApp } from '@/store/AppStore';
 import { colors, space } from '@/theme';
 
 export default function Tournaments() {
-  const { t, tournaments } = useApp();
+  const { t, tournaments, refresh, mode, loading } = useApp();
   const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<Tournament['status'] | null>(null);
   const order = { live: 0, open: 1, finished: 2 };
@@ -27,6 +27,7 @@ export default function Tournaments() {
         </HScroll>
       </View>
       <FlatList
+        refreshControl={mode === 'live' ? <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.primary} /> : undefined}
         data={list}
         keyExtractor={(x) => x.id}
         renderItem={({ item }) => <TournamentCard tournament={item} />}

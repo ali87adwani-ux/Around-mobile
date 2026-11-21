@@ -7,14 +7,14 @@ import { LevelBadge } from '@/components/cards';
 import { ConfirmSheet, useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Avatar, Badge, Button, Card, EmptyState, IconButton, PitchArt, Progress, Row, Tap, Txt, useDir } from '@/components/ui';
-import { ME_ID } from '@/data/seed';
 import { dateFromOffset, formatDay, formatDuration, formatHour } from '@/i18n/format';
 import { useApp } from '@/store/AppStore';
 import { colors, radius, shadow, space } from '@/theme';
 
 export default function MatchScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t, l, lang, money, getMatch, getPitch, getPlayer, matchPlayers, isJoined, dispatch } = useApp();
+  const { t, l, lang, money, getMatch, getPitch, getPlayer, matchPlayers, isJoined, joinMatch, leaveMatch, errText, meId } = useApp();
+  const [busyAction, setBusyAction] = useState(false);
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const d = useDir();
@@ -57,7 +57,7 @@ export default function MatchScreen() {
         </View>
       );
     const p = getPlayer(pid);
-    const isMe = pid === ME_ID;
+    const isMe = pid === meId;
     return (
       <Tap onPress={() => !isMe && router.push(`/player/${pid}`)} style={{ alignItems: 'center', gap: 4, width: 64 }}>
         <View>
@@ -148,7 +148,7 @@ export default function MatchScreen() {
               <Txt v="tiny" color={colors.textMuted}>
                 {t('organizer')}
               </Txt>
-              <Txt v="h3">{match.organizerId === ME_ID ? t('you') : l(organizer.name)}</Txt>
+              <Txt v="h3">{match.organizerId === meId ? t('you') : l(organizer.name)}</Txt>
             </View>
             <Row gap={4}>
               <Ionicons name="star" size={14} color={colors.warning} />
@@ -169,9 +169,13 @@ export default function MatchScreen() {
             title={left > 0 ? t('joinGame', { price: money(match.pricePerPlayer) }) : t('full')}
             disabled={left <= 0}
             icon="person-add"
-            onPress={() => {
-              dispatch({ type: 'join', id: match.id });
-              toast(t('joinedToast'));
+            loading={busyAction}
+            onPress={async () => {
+              setBusyAction(true);
+              const r = await joinMatch(match.id);
+              setBusyAction(false);
+              if (r.ok) toast(t('joinedToast'));
+              else toast(errText(r.error), 'error');
             }}
           />
         )}
@@ -185,10 +189,11 @@ export default function MatchScreen() {
         confirmLabel={t('leaveGame')}
         cancelLabel={t('cancel')}
         danger
-        onConfirm={() => {
+        onConfirm={async () => {
           setLeaving(false);
-          const created = match.createdByMe;
-          dispatch({ type: 'leave', id: match.id });
+          const created = match.createdByMe || (match.organizerId === meId && ids.length <= 1);
+          const r = await leaveMatch(match.id);
+          if (!r.ok) return toast(errText(r.error), 'error');
           toast(t('leftToast'), 'info');
           if (created) router.back();
         }}

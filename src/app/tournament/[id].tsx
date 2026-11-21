@@ -17,7 +17,8 @@ const pts = (r: TeamRow) => r.won * 3 + r.drawn;
 
 export default function TournamentScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t, l, lang, money, getTournament, getPitch, state, dispatch } = useApp();
+  const { t, l, lang, money, getTournament, getPitch, registrationFor, registerTeam, errText, meId } = useApp();
+  const [saving, setSaving] = useState(false);
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const d = useDir();
@@ -36,19 +37,21 @@ export default function TournamentScreen() {
     );
   }
 
-  const reg = state.registrations[tour.id];
+  const reg = registrationFor(tour.id);
   const pitch = getPitch(tour.pitchId);
-  const myTeam: TeamRow | null = reg ? { id: 'mine', name: { ar: reg, en: reg }, played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, color: colors.accentDark } : null;
-  const teams = [...tour.teams, ...(myTeam ? [myTeam] : [])];
+  const teams = tour.teams;
   const table = [...teams].sort((a, b) => pts(b) - pts(a) || b.gf - b.ga - (a.gf - a.ga) || b.gf - a.gf);
   const teamById = (tid: string) => teams.find((x) => x.id === tid)!;
   const full = teams.length >= tour.maxTeams;
   const labels = { today: t('today'), tomorrow: t('tomorrow') };
 
-  const register = () => {
+  const register = async () => {
     setTried(true);
     if (!teamName.trim()) return;
-    dispatch({ type: 'register', tournamentId: tour.id, teamName: teamName.trim() });
+    setSaving(true);
+    const r = await registerTeam(tour.id, teamName.trim());
+    setSaving(false);
+    if (!r.ok) return toast(errText(r.error), 'error');
     setSheet(false);
     toast(t('registeredToast'));
   };
@@ -119,7 +122,7 @@ export default function TournamentScreen() {
               <Txt v="h3">{t('teams')}</Txt>
               <Row gap={8} wrap>
                 {teams.map((tm) => (
-                  <Row key={tm.id} gap={6} style={{ backgroundColor: tm.id === 'mine' ? colors.primarySoft : colors.bg, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 }}>
+                  <Row key={tm.id} gap={6} style={{ backgroundColor: tm.captainId === meId ? colors.primarySoft : colors.bg, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 }}>
                     <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: tm.color }} />
                     <Txt v="caption">{l(tm.name)}</Txt>
                   </Row>
@@ -147,7 +150,7 @@ export default function TournamentScreen() {
               <Divider />
               {table.map((r, i) => (
                 <View key={r.id}>
-                  <Row style={{ paddingVertical: 12, backgroundColor: r.id === 'mine' ? colors.primarySoft : undefined, borderRadius: radius.sm }}>
+                  <Row style={{ paddingVertical: 12, backgroundColor: r.captainId === meId ? colors.primarySoft : undefined, borderRadius: radius.sm }}>
                     <View style={{ width: 24, alignItems: 'center' }}>
                       {tour.status === 'finished' && i === 0 ? <Ionicons name="trophy" size={15} color={colors.warning} /> : <Txt v="label" center>{i + 1}</Txt>}
                     </View>
@@ -231,7 +234,7 @@ export default function TournamentScreen() {
               {money(tour.entryFee)}
             </Txt>
           </Row>
-          <Button title={t('confirm')} icon="checkmark-circle" onPress={register} />
+          <Button title={t('confirm')} icon="checkmark-circle" loading={saving} onPress={register} />
         </View>
       </Sheet>
     </View>

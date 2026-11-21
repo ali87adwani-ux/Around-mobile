@@ -71,3 +71,33 @@ export function formatMoney(n: number, lang: Lang) {
   const s = (Math.round(n * 1000) / 1000).toLocaleString('en-US', { maximumFractionDigits: 3 });
   return lang === 'ar' ? `${s} د.ك` : `KD ${s}`;
 }
+
+/* ---------- Kuwait time (UTC+3 all year, no daylight saving) ---------- */
+
+const KW_OFFSET_MS = 3 * 3600 * 1000;
+
+export function kwTodayISO(): string {
+  return new Date(Date.now() + KW_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/** A Kuwait-local date + hour as an absolute timestamp string. */
+export function kwTimestamp(dateISO: string, hour: number): string {
+  const hh = `${Math.floor(hour)}`.padStart(2, '0');
+  const mm = `${Math.round((hour % 1) * 60)}`.padStart(2, '0');
+  return `${dateISO}T${hh}:${mm}:00+03:00`;
+}
+
+/** Kuwait-local date and hour of an absolute timestamp. */
+export function kwParts(ts: string | Date): { dateISO: string; hour: number } {
+  const d = new Date(new Date(ts).getTime() + KW_OFFSET_MS);
+  return { dateISO: d.toISOString().slice(0, 10), hour: d.getUTCHours() + d.getUTCMinutes() / 60 };
+}
+
+/** Whole days from Kuwait-today to a Kuwait date. */
+export function kwOffset(dateISO: string): number {
+  return Math.round((Date.parse(dateISO) - Date.parse(kwTodayISO())) / 86400000);
+}
+
+export function kwDateFromOffset(offset: number): string {
+  return new Date(Date.parse(kwTodayISO()) + offset * 86400000).toISOString().slice(0, 10);
+}

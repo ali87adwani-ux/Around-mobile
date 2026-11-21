@@ -8,6 +8,9 @@ export type Position = 'GK' | 'DEF' | 'MID' | 'FWD';
 
 export interface Pitch {
   id: string;
+  ownerId?: string;
+  lat?: number;
+  lng?: number;
   name: L10n;
   area: L10n;
   address: L10n;
@@ -59,6 +62,7 @@ export interface TeamRow {
   gf: number;
   ga: number;
   color: string;
+  captainId?: string;
 }
 
 export interface Fixture {
