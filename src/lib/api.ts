@@ -90,7 +90,7 @@ export async function fetchMatches(): Promise<{ matches: Match[]; playerIds: str
 
 export async function fetchPlayers(ids: string[]): Promise<Player[]> {
   if (!ids.length) return [];
-  const { data, error } = await db().from('profiles').select('id, name, position, level').in('id', ids);
+  const { data, error } = await db().from('profiles').select('id, name, position, level, avatar_url').in('id', ids);
   if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id,
@@ -100,6 +100,7 @@ export async function fetchPlayers(ids: string[]): Promise<Player[]> {
     area: { ar: '', en: '' },
     stats: { matches: 0, goals: 0, assists: 0, mvp: 0, wins: 0, rating: 0 },
     color: colorFor(r.id),
+    avatarUrl: r.avatar_url ?? undefined,
   }));
 }
 
@@ -223,7 +224,7 @@ export async function registerTeam(tournamentId: string, name: string) {
 export async function fetchProfile(userId: string) {
   const { data, error } = await db().from('profiles').select('*').eq('id', userId).maybeSingle();
   if (error) throw error;
-  return data as { id: string; name: string; position: Player['position']; level: Player['level']; role: 'player' | 'owner' | 'admin' } | null;
+  return data as { id: string; name: string; position: Player['position']; level: Player['level']; role: 'player' | 'owner' | 'academy' | 'admin'; avatar_url: string | null } | null;
 }
 
 export async function updateProfile(userId: string, p: { name?: string; position?: string; level?: string }) {
@@ -258,5 +259,28 @@ export async function ownerUnblock(bookingId: string) {
 
 export async function ownerUpdatePrice(pitchId: string, price: number) {
   const { error } = await db().from('pitches').update({ price_per_hour: price }).eq('id', pitchId);
+  if (error) throw error;
+}
+
+/* ---------- profile photo ---------- */
+
+/** Uploads a local image to the avatars bucket and stores its public URL on the profile. */
+export async function uploadAvatar(userId: string, localUri: string): Promise<string> {
+  const res = await fetch(localUri);
+  const body = await res.arrayBuffer();
+  const type = res.headers.get('content-type') || 'image/jpeg';
+  const path = `${userId}/avatar.jpg`;
+  const { error } = await db().storage.from('avatars').upload(path, body, { contentType: type, upsert: true });
+  if (error) throw error;
+  const { data } = db().storage.from('avatars').getPublicUrl(path);
+  const url = `${data.publicUrl}?v=${Date.now()}`; // bust caches after a change
+  const { error: e2 } = await db().from('profiles').update({ avatar_url: url }).eq('id', userId);
+  if (e2) throw e2;
+  return url;
+}
+
+export async function removeAvatar(userId: string) {
+  await db().storage.from('avatars').remove([`${userId}/avatar.jpg`]);
+  const { error } = await db().from('profiles').update({ avatar_url: null }).eq('id', userId);
   if (error) throw error;
 }

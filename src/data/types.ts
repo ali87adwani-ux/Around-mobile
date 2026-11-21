@@ -35,6 +35,7 @@ export interface Player {
   area: L10n;
   stats: { matches: number; goals: number; assists: number; mvp: number; wins: number; rating: number };
   color: string;
+  avatarUrl?: string;
 }
 
 export interface Match {
@@ -107,4 +108,5 @@ export interface Profile {
   position: Position;
   level: Level;
   phone: string;
+  avatarUrl?: string;
 }

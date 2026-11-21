@@ -40,6 +40,13 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 160
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "الدوري يحتاج الوصول لصورك عشان تضيف صورة حسابك. Al Dawri uses your photos to set your profile picture.",
+          "cameraPermission": "الدوري يحتاج الكاميرا عشان تصوّر صورة حسابك. Al Dawri uses the camera to take your profile picture."
+        }
       ]
     ],
     "experiments": {

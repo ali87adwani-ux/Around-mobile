@@ -9,7 +9,8 @@ create table public.profiles (
   name text not null default '',
   position text not null default 'MID' check (position in ('GK', 'DEF', 'MID', 'FWD')),
   level text not null default 'intermediate' check (level in ('beginner', 'intermediate', 'advanced')),
-  role text not null default 'player' check (role in ('player', 'owner', 'admin')),
+  role text not null default 'player' check (role in ('player', 'owner', 'academy', 'admin')),
+  avatar_url text,
   created_at timestamptz not null default now()
 );
 comment on table public.profiles is 'Public player card. Phone numbers stay in auth.users and are never exposed here.';
@@ -156,7 +157,7 @@ create policy "users update their own profile" on public.profiles
   for update to authenticated using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
 -- Players can edit their card but never their role.
 revoke update on public.profiles from authenticated, anon;
-grant update (name, position, level) on public.profiles to authenticated;
+grant update (name, position, level, avatar_url) on public.profiles to authenticated;
 
 create policy "active pitches are public" on public.pitches
   for select to anon, authenticated using (active or owner_id = (select auth.uid()));

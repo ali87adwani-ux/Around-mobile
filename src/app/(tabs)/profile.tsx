@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, ScrollView, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { ActivityIndicator, Image, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PitchCard } from '@/components/cards';
 import { ConfirmSheet, Sheet, useToast } from '@/components/overlays';
@@ -13,12 +14,33 @@ import { useApp } from '@/store/AppStore';
 import { colors, radius, space } from '@/theme';
 
 export default function Profile() {
-  const { t, me, state, dispatch, lang, pitches, myBookings, isOwner, mode, signOut, saveProfile, errText, allMatches, isJoined } = useApp();
+  const { t, me, state, dispatch, lang, pitches, myBookings, isOwner, mode, signOut, saveProfile, errText, allMatches, isJoined, setAvatar, removeAvatar } = useApp();
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const d = useDir();
   const [edit, setEdit] = useState(false);
   const [reset, setReset] = useState(false);
+  const [photoSheet, setPhotoSheet] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+
+  const pickPhoto = async (source: 'camera' | 'library') => {
+    const perm = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return toast(t('photoPermission'), 'error');
+    const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6 };
+    const res = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
+    if (res.canceled || !res.assets?.[0]) return;
+    setPhotoSheet(false);
+    setPhotoBusy(true);
+    const r = await setAvatar(res.assets[0].uri);
+    setPhotoBusy(false);
+    toast(r.ok ? t('photoSaved') : errText(r.error), r.ok ? 'success' : 'error');
+  };
+
+  const deletePhoto = async () => {
+    setPhotoSheet(false);
+    const r = await removeAvatar();
+    toast(r.ok ? t('photoRemoved') : errText(r.error), r.ok ? 'info' : 'error');
+  };
   const [name, setName] = useState(state.profile.name);
   const [position, setPosition] = useState<Position>(state.profile.position);
   const [level, setLevel] = useState<Level>(state.profile.level);
@@ -56,7 +78,7 @@ export default function Profile() {
       </Row>
 
       <View style={{ paddingHorizontal: space.lg }}>
-        <PlayerCard player={me} displayName={state.profile.name || undefined} />
+        <PlayerCard player={me} displayName={state.profile.name || undefined} onEditPhoto={() => setPhotoSheet(true)} />
       </View>
 
       <View style={{ paddingHorizontal: space.lg }}>
@@ -172,6 +194,20 @@ export default function Profile() {
           />
         </View>
       </Sheet>
+
+      <Sheet visible={photoSheet} onClose={() => setPhotoSheet(false)} title={t('profilePhoto')}>
+        <View style={{ gap: space.sm }}>
+          {Platform.OS !== 'web' && <Button title={t('takePhoto')} icon="camera" onPress={() => pickPhoto('camera')} />}
+          <Button title={state.profile.avatarUrl ? t('changePhoto') : t('choosePhoto')} icon="images" kind={Platform.OS === 'web' ? 'primary' : 'secondary'} onPress={() => pickPhoto('library')} />
+          {state.profile.avatarUrl && <Button title={t('removePhoto')} icon="trash" kind="danger" onPress={deletePhoto} />}
+          <Button title={t('cancel')} kind="ghost" onPress={() => setPhotoSheet(false)} />
+        </View>
+      </Sheet>
+      {photoBusy && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.overlay, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.white} size="large" />
+        </View>
+      )}
 
       <ConfirmSheet
         visible={reset}

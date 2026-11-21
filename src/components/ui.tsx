@@ -5,6 +5,7 @@ import React, { useRef } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -266,7 +267,7 @@ export function Badge({ label, color = colors.primary, bg = colors.primarySoft, 
   );
 }
 
-export function Avatar({ name, color = colors.primary, size = 40, ring }: { name: string; color?: string; size?: number; ring?: boolean }) {
+export function Avatar({ name, color = colors.primary, size = 40, ring, uri }: { name: string; color?: string; size?: number; ring?: boolean; uri?: string }) {
   const initials = name
     .split(' ')
     .filter(Boolean)
@@ -284,14 +285,19 @@ export function Avatar({ name, color = colors.primary, size = 40, ring }: { name
         justifyContent: 'center',
         borderWidth: ring ? 2.5 : 0,
         borderColor: colors.white,
+        overflow: 'hidden',
       }}
     >
-      <Text style={{ color: colors.white, fontFamily: fonts.bold, fontSize: size * 0.36 }}>{initials || '?'}</Text>
+      {uri ? (
+        <Image source={{ uri }} style={{ width: '100%', height: '100%' }} accessibilityIgnoresInvertColors />
+      ) : (
+        <Text style={{ color: colors.white, fontFamily: fonts.bold, fontSize: size * 0.36 }}>{initials || '?'}</Text>
+      )}
     </View>
   );
 }
 
-export function AvatarStack({ names, colorsList, max = 4, size = 30 }: { names: string[]; colorsList: string[]; max?: number; size?: number }) {
+export function AvatarStack({ names, colorsList, uris, max = 4, size = 30 }: { names: string[]; colorsList: string[]; uris?: (string | undefined)[]; max?: number; size?: number }) {
   const { isRTL } = useApp();
   const shown = names.slice(0, max);
   const extra = names.length - shown.length;
@@ -299,7 +305,7 @@ export function AvatarStack({ names, colorsList, max = 4, size = 30 }: { names: 
     <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row' }}>
       {shown.map((n, i) => (
         <View key={i} style={{ [isRTL ? 'marginRight' : 'marginLeft']: i === 0 ? 0 : -size * 0.32 }}>
-          <Avatar name={n} color={colorsList[i]} size={size} ring />
+          <Avatar name={n} color={colorsList[i]} uri={uris?.[i]} size={size} ring />
         </View>
       ))}
       {extra > 0 && (

@@ -46,7 +46,7 @@ export default function Leaderboard() {
                 return (
                   <Tap key={p.id} onPress={() => p.id !== 'me' && router.push(`/player/${p.id}`)} style={{ alignItems: 'center', flex: 1, gap: 6 }}>
                     {rank === 0 && <Ionicons name="trophy" size={22} color={medal[0]} />}
-                    <Avatar name={l(p.name)} color={p.color} size={rank === 0 ? 64 : 52} ring />
+                    <Avatar name={l(p.name)} color={p.color} uri={p.avatarUrl} size={rank === 0 ? 64 : 52} ring />
                     <Txt v="label" center numberOfLines={1}>
                       {p.id === 'me' ? t('you') : l(p.name).split(' ')[0]}
                     </Txt>
@@ -70,7 +70,7 @@ export default function Leaderboard() {
               <Txt v="label" color={colors.textMuted} center style={{ width: 24 }}>
                 {index + 4}
               </Txt>
-              <Avatar name={l(p.name)} color={p.color} size={40} />
+              <Avatar name={l(p.name)} color={p.color} uri={p.avatarUrl} size={40} />
               <View style={{ flex: 1 }}>
                 <Txt v="bodyStrong">{p.id === 'me' ? t('you') : l(p.name)}</Txt>
                 <Txt v="tiny" color={colors.textMuted}>

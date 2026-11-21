@@ -74,7 +74,7 @@ export default function Home() {
         <Row justify="space-between">
           <Row gap={space.md} style={{ flex: 1 }}>
             <Tap onPress={() => router.push('/profile')}>
-              <Avatar name={state.profile.name || 'Me'} size={44} color={colors.accentDark} />
+              <Avatar name={state.profile.name || 'Me'} size={44} color={colors.accentDark} uri={state.profile.avatarUrl} />
             </Tap>
             <View style={{ flex: 1 }}>
               <Txt v="h3" color={colors.white} numberOfLines={1}>

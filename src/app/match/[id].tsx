@@ -61,7 +61,7 @@ export default function MatchScreen() {
     return (
       <Tap onPress={() => !isMe && router.push(`/player/${pid}`)} style={{ alignItems: 'center', gap: 4, width: 64 }}>
         <View>
-          <Avatar name={l(p.name)} color={isMe ? colors.accentDark : p.color} size={44} ring />
+          <Avatar name={l(p.name)} color={isMe ? colors.accentDark : p.color} uri={p.avatarUrl} size={44} ring />
           <View style={{ position: 'absolute', bottom: -4, alignSelf: 'center', backgroundColor: colors.text, borderRadius: 6, paddingHorizontal: 4 }}>
             <Txt v="tiny" color={colors.white} center style={{ fontSize: 9, lineHeight: 13 }}>
               {t(`posShort_${p.position}`)}
@@ -143,7 +143,7 @@ export default function MatchScreen() {
         {/* Organizer */}
         <Card onPress={() => router.push(`/player/${organizer.id}`)}>
           <Row gap={space.md}>
-            <Avatar name={l(organizer.name)} color={organizer.color} size={48} />
+            <Avatar name={l(organizer.name)} color={organizer.color} uri={organizer.avatarUrl} size={48} />
             <View style={{ flex: 1 }}>
               <Txt v="tiny" color={colors.textMuted}>
                 {t('organizer')}

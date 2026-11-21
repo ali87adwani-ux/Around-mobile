@@ -113,7 +113,7 @@ export function MatchCard({ match, compact }: { match: Match; compact?: boolean 
       </Row>
       <View style={{ gap: 8 }}>
         <Row justify="space-between">
-          <AvatarStack names={ids.map((id) => l(getPlayer(id).name))} colorsList={ids.map((id) => getPlayer(id).color)} max={5} size={28} />
+          <AvatarStack names={ids.map((id) => l(getPlayer(id).name))} colorsList={ids.map((id) => getPlayer(id).color)} uris={ids.map((id) => getPlayer(id).avatarUrl)} max={5} size={28} />
           {joined ? (
             <Badge label={t('joined')} icon="checkmark-circle" color={colors.primary} />
           ) : (

@@ -190,6 +190,9 @@ interface Ctx {
   leaveMatch: (id: string) => Promise<Result>;
   registerTeam: (tournamentId: string, name: string) => Promise<Result>;
   saveProfile: (p: Partial<Profile>) => Promise<Result>;
+  setAvatar: (localUri: string) => Promise<Result>;
+  removeAvatar: () => Promise<Result>;
+  role: 'player' | 'owner' | 'academy' | 'admin';
   // auth (live mode)
   sendCode: (phone: string) => Promise<Result>;
   verifyCode: (phone: string, code: string) => Promise<Result>;
@@ -222,7 +225,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // live-mode state
   const [userId, setUserId] = useState<string | null>(null);
-  const [role, setRole] = useState<'player' | 'owner' | 'admin'>('player');
+  const [role, setRole] = useState<'player' | 'owner' | 'academy' | 'admin'>('player');
   const [authChecked, setAuthChecked] = useState(!live);
   const [remote, setRemote] = useState<Remote>({ pitches: [], matches: [], players: [], tournaments: [], bookings: [] });
   const [busy, setBusy] = useState<Record<string, number[]>>({});
@@ -267,7 +270,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const p = await api.fetchProfile(uid);
         if (p) {
           setRole(p.role);
-          dispatch({ type: 'updateProfile', profile: { name: p.name, position: p.position, level: p.level } });
+          dispatch({ type: 'updateProfile', profile: { name: p.name, position: p.position, level: p.level, avatarUrl: p.avatar_url ?? undefined } });
           if (p.name) dispatch({ type: 'completeOnboarding', profile: {} });
           else {
             // Prefill the player card with the name from Google, if signed in that way.
@@ -353,6 +356,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       area: pitches[0]?.area ?? { ar: '', en: '' },
       stats: live ? { matches: played, goals: 0, assists: 0, mvp: 0, wins: 0, rating: 0 } : demoStats,
       color: '#0B2E6F',
+      avatarUrl: state.profile.avatarUrl,
     };
   }, [live, remote.matches, meId, state.profile, state.joinedMatchIds.length, pitches]);
 
@@ -518,6 +522,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return ok();
         }),
 
+      setAvatar: (localUri) =>
+        guard(async () => {
+          const url = live && userId ? await api.uploadAvatar(userId, localUri) : localUri;
+          dispatch({ type: 'updateProfile', profile: { avatarUrl: url } });
+          if (live) refresh();
+          return ok();
+        }),
+      removeAvatar: () =>
+        guard(async () => {
+          if (live && userId) await api.removeAvatar(userId);
+          dispatch({ type: 'updateProfile', profile: { avatarUrl: undefined } });
+          if (live) refresh();
+          return ok();
+        }),
+      role: live ? role : state.demoOwner ? 'owner' : 'player',
       sendCode: (phone) =>
         guard(async () => {
           if (!supabase) return ok();
@@ -612,7 +631,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return ok();
         }),
     };
-  }, [state, live, userId, authChecked, loading, lang, isRTL, t, l, money, errText, meId, me, pitches, players, tournaments, allMatches, myBookings, isJoined, bookedHours, loadBusy, refresh, isOwner, ownerPitches]);
+  }, [state, live, userId, role, authChecked, loading, lang, isRTL, t, l, money, errText, meId, me, pitches, players, tournaments, allMatches, myBookings, isJoined, bookedHours, loadBusy, refresh, isOwner, ownerPitches]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
