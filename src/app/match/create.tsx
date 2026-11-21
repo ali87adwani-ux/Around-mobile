@@ -6,12 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '@/components/overlays';
 import { bookingPrice } from '@/lib/pricing';
 import { Button, Chip, HScroll, IconButton, PitchArt, Row, Tap, Txt, haptic } from '@/components/ui';
-import type { Level } from '@/data/types';
+import type { Level, PitchSize } from '@/data/types';
 import { dateFromOffset, formatDuration, formatHour, toISODate, weekdayShort } from '@/i18n/format';
 import { useApp } from '@/store/AppStore';
 import { colors, radius, shadow, space } from '@/theme';
 
-const mult = { 5: 1, 7: 1.5, 11: 2.4 } as const;
+const mult = { 5: 1, 6: 1.2, 7: 1.5, 11: 2.4 } as const;
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -33,7 +33,7 @@ export default function CreateMatch() {
   const [hour, setHour] = useState<number | null>(params.hour ? Number(params.hour) : null);
   const [duration, setDuration] = useState(1);
   const pitch = getPitch(pitchId);
-  const [format, setFormat] = useState<5 | 7 | 11>(pitch.sizes[0]);
+  const [format, setFormat] = useState<PitchSize>(pitch.sizes[0]);
   const [level, setLevel] = useState<Level>(state.profile.level);
   // If the user arrives from a fresh booking, that slot is theirs: don't show it as taken.
   const fromBooking = !!params.hour;

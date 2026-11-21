@@ -2,7 +2,7 @@
  * Supabase data access. Maps database rows to the app's types.
  * Only used when the backend is configured (see src/lib/supabase.ts).
  */
-import type { AppNotification, Booking, DuesRow, Fixture, Highlight, Match, MatchEvent, PendingPitch, Pitch, PitchSubmissionInput, Player, RosterPlayer, TeamRow, Tournament, TournamentAward, TournamentFormat, Trophy } from '@/data/types';
+import type { AppNotification, Booking, DuesRow, Fixture, Highlight, Match, MatchEvent, PendingPitch, Pitch, PitchSubmissionInput, Player, RosterPlayer, TeamRow, Tournament, TournamentAward, TournamentFormat, Trophy, PitchSize } from '@/data/types';
 import { kwDateFromOffset, kwOffset, kwParts, kwTimestamp } from '@/i18n/format';
 import { supabase } from './supabase';
 
@@ -432,7 +432,7 @@ const rpc = async <T = unknown>(fn: string, args?: Record<string, unknown>): Pro
 export interface TournamentInput {
   name: string;
   pitchId: string;
-  format: 5 | 7 | 11;
+  format: PitchSize;
   formatType: TournamentFormat;
   groupsCount: number;
   startsOn: string;

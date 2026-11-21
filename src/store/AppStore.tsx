@@ -16,7 +16,7 @@ import { Platform, useColorScheme } from 'react-native';
 import { applyTheme, type ThemeName } from '@/theme';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { ME_ID, seedReviews, matches as seedMatches, pitches as seedPitches, players as seedPlayers, tournaments as seedTournaments } from '@/data/seed';
-import type { Booking, Lang, Match, Pitch, PitchSubmissionInput, Player, Profile, Review, Tournament } from '@/data/types';
+import type { Booking, Lang, Match, Pitch, PitchSubmissionInput, Player, Profile, Review, Tournament, PitchSize } from '@/data/types';
 import { strings, type StringKey } from '@/i18n/strings';
 import { dateFromOffset, formatHour, formatMoney, toISODate } from '@/i18n/format';
 import { cancelReminder, scheduleReminder } from '@/lib/reminders';
@@ -262,7 +262,7 @@ interface Ctx {
   // actions
   bookPitch: (p: { pitchId: string; dateISO: string; hour: number; duration: number; size: number; total: number }) => Promise<Result>;
   cancelBooking: (id: string) => Promise<Result>;
-  createMatch: (p: { pitchId: string; dayOffset: number; hour: number; duration: number; format: 5 | 7 | 11; level: Match['level']; pricePerPlayer: number }) => Promise<Result>;
+  createMatch: (p: { pitchId: string; dayOffset: number; hour: number; duration: number; format: PitchSize; level: Match['level']; pricePerPlayer: number }) => Promise<Result>;
   joinMatch: (id: string) => Promise<Result>;
   leaveMatch: (id: string) => Promise<Result>;
   registerTeam: (tournamentId: string, name: string) => Promise<Result>;

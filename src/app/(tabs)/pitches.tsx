@@ -76,7 +76,7 @@ export default function Pitches() {
           <Chip label={t('sortTop')} icon="star-outline" selected={sort === 'top'} onPress={() => setSort('top')} />
           <View style={{ width: 1, backgroundColor: colors.border, marginVertical: 6 }} />
           <Chip label={t('favorite')} icon="heart-outline" selected={favOnly} onPress={() => setFavOnly(!favOnly)} />
-          {([5, 7, 11] as PitchSize[]).map((s) => (
+          {([5, 6, 7, 11] as PitchSize[]).map((s) => (
             <Chip key={s} label={`${s}×${s}`} selected={size === s} onPress={() => setSize(size === s ? null : s)} />
           ))}
           <Chip label={t('indoor')} icon="home-outline" selected={indoor} onPress={() => setIndoor(!indoor)} />

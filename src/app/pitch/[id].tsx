@@ -26,7 +26,7 @@ const amenityIcon: Record<Amenity, IconName> = {
   ac: 'snow-outline',
 };
 
-const sizeMultiplier: Record<PitchSize, number> = { 5: 1, 7: 1.5, 11: 2.4 };
+const sizeMultiplier: Record<PitchSize, number> = { 5: 1, 6: 1.2, 7: 1.5, 11: 2.4 };
 
 export default function PitchScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

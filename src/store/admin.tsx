@@ -5,7 +5,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { players as seedPlayers } from '@/data/seed';
-import type { L10n, Tournament } from '@/data/types';
+import type { L10n, Tournament, PitchSize } from '@/data/types';
 import { dateFromOffset, kwParts, toISODate } from '@/i18n/format';
 import { errorCode } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
@@ -64,7 +64,7 @@ interface Ctx {
   updateAcademy: (academyId: string, p: { active?: boolean; ownerId?: string | null }) => Promise<Result>;
   cancelBooking: (id: string) => Promise<Result>;
   setTournamentStatus: (id: string, status: Tournament['status']) => Promise<Result>;
-  createTournament: (p: { name: string; pitchId: string; format: 5 | 7 | 11; startOffset: number; maxTeams: number; fee: number; prize: number }) => Promise<Result>;
+  createTournament: (p: { name: string; pitchId: string; format: PitchSize; startOffset: number; maxTeams: number; fee: number; prize: number }) => Promise<Result>;
   postAnnouncement: (body: string) => Promise<Result>;
   setAnnouncementActive: (id: string, active: boolean) => Promise<Result>;
 }

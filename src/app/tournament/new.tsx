@@ -8,7 +8,7 @@ import { Stepper } from '@/components/academy';
 import { useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Button, Card, Chip, Field, Row, Segmented, Txt, haptic } from '@/components/ui';
-import type { TournamentFormat } from '@/data/types';
+import type { TournamentFormat, PitchSize } from '@/data/types';
 import { dateFromOffset, formatDay, toISODate } from '@/i18n/format';
 import * as api from '@/lib/api';
 import { useApp } from '@/store/AppStore';
@@ -27,7 +27,7 @@ export default function NewTournament() {
   const [name, setName] = useState('');
   const [type, setType] = useState<TournamentFormat>('league');
   const [groups, setGroups] = useState(2);
-  const [format, setFormat] = useState<5 | 7 | 11>((pitch?.sizes[0] as 5 | 7 | 11) ?? 5);
+  const [format, setFormat] = useState<PitchSize>((pitch?.sizes[0] as PitchSize) ?? 5);
   const [maxTeams, setMaxTeams] = useState(8);
   const [minP, setMinP] = useState(5);
   const [maxP, setMaxP] = useState(10);
@@ -42,7 +42,7 @@ export default function NewTournament() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (pitch && !pitch.sizes.includes(format)) setFormat(pitch.sizes[0] as 5 | 7 | 11);
+    if (pitch && !pitch.sizes.includes(format)) setFormat(pitch.sizes[0] as PitchSize);
     if (mode === 'live' && pitchId) api.commissionRateFor(pitchId).then(setRate).catch(() => {});
   }, [pitchId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -132,7 +132,7 @@ export default function NewTournament() {
           {label(t('matchSize'))}
           <Row gap={8}>
             {(pitch?.sizes ?? [5]).map((n) => (
-              <Chip key={n} label={t('aSide', { n })} selected={format === n} onPress={() => setFormat(n as 5 | 7 | 11)} />
+              <Chip key={n} label={t('aSide', { n })} selected={format === n} onPress={() => setFormat(n as PitchSize)} />
             ))}
           </Row>
         </View>

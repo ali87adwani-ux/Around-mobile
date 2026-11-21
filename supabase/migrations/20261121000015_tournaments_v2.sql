@@ -237,7 +237,7 @@ begin
   if not found then raise exception 'pitch_not_found'; end if;
   if not v_admin and v_pitch.owner_id is distinct from v_uid then raise exception 'not_your_pitch'; end if;
   if length(trim(coalesce(p_name, ''))) < 3 then raise exception 'invalid_name'; end if;
-  if p_format not in (5, 7, 11) or not (p_format = any (v_pitch.sizes)) then raise exception 'invalid_size'; end if;
+  if p_format not in (5, 6, 7, 11) or not (p_format = any (v_pitch.sizes)) then raise exception 'invalid_size'; end if;
   if p_type not in ('league', 'knockout', 'groups') then raise exception 'invalid_format'; end if;
   if p_max_teams < 3 or p_max_teams > 32 then raise exception 'invalid_teams'; end if;
   if p_type = 'groups' and p_max_teams < coalesce(p_groups, 2) * 2 then raise exception 'invalid_teams'; end if;

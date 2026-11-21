@@ -2,7 +2,7 @@ import type { Pitch, PitchSize } from '@/data/types';
 import { fromISODate } from '@/i18n/format';
 
 export const OFF_PEAK_DISCOUNT = 0.2;
-const sizeMultiplier: Record<PitchSize, number> = { 5: 1, 7: 1.5, 11: 2.4 };
+const sizeMultiplier: Record<PitchSize, number> = { 5: 1, 6: 1.2, 7: 1.5, 11: 2.4 };
 
 /** Kick-off before 5 PM, Sunday to Wednesday. Mirrors public.off_peak_factor() on the server. */
 export function isOffPeak(dateISO: string, hour: number) {

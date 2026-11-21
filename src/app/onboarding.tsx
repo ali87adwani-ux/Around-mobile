@@ -28,7 +28,7 @@ function FadeIn({ children, style }: { children: React.ReactNode; style?: StyleP
 }
 
 export default function Onboarding() {
-  const { t, state, dispatch, lang, mode, signedIn, signInGuest, signInWithGoogle, signInWithApple, saveProfile, errText } = useApp();
+  const { t, state, dispatch, lang, mode, signedIn, signInGuest, signInWithGoogle, signInWithApple, saveProfile, errText, themeName } = useApp();
   const insets = useSafeAreaInsets();
   // step 0 = language, 1..3 = slides, 4 = profile, 5 = sign in with Apple / Google (live mode only)
   const [step, setStep] = useState(0);
@@ -144,6 +144,12 @@ export default function Onboarding() {
           </FadeIn>
         </ScrollView>
         <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.lg, gap: space.md }}>
+          <Image
+            source={themeName === 'dark' ? require('../../assets/brand/lockup-white.png') : require('../../assets/brand/lockup-navy.png')}
+            style={{ width: 180, height: 109, alignSelf: 'center', marginBottom: space.lg }}
+            resizeMode="contain"
+            accessibilityLabel={t('appName')}
+          />
           <Button title={t('continueApple')} kind="dark" icon="logo-apple" loading={appleBusy} onPress={apple} />
           <Button title={t('continueGoogle')} kind="ghost" icon="logo-google" loading={googleBusy} onPress={google} />
           {ALLOW_GUEST && (

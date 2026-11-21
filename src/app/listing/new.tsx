@@ -105,7 +105,7 @@ export default function NewListing() {
         <View style={{ gap: space.sm }}>
           <Txt v="label" color={colors.textMuted}>{t('pitchSizes')}</Txt>
           <Row gap={8} wrap>
-            {([5, 7, 11] as PitchSize[]).map((n) => (
+            {([5, 6, 7, 11] as PitchSize[]).map((n) => (
               <Chip key={n} label={t('aSide', { n })} selected={sizes.includes(n)} onPress={() => setSizes(toggle(sizes, n))} />
             ))}
           </Row>

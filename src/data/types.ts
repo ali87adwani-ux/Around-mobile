@@ -13,7 +13,7 @@ export interface Review {
   comment: string;
   at: number;
 }
-export type PitchSize = 5 | 7 | 11;
+export type PitchSize = 5 | 6 | 7 | 11;
 export type Level = 'beginner' | 'intermediate' | 'advanced';
 export type Position = 'GK' | 'DEF' | 'MID' | 'FWD';
 
@@ -59,7 +59,7 @@ export interface Match {
   dayOffset: number;
   hour: number;
   duration: number;
-  format: 5 | 7 | 11;
+  format: PitchSize;
   level: Level;
   pricePerPlayer: number;
   maxPlayers: number;
@@ -110,7 +110,7 @@ export interface Tournament {
   id: string;
   name: L10n;
   pitchId: string;
-  format: 5 | 7 | 11;
+  format: PitchSize;
   status: TournamentStatus;
   startOffset: number;
   startsOn?: string;
