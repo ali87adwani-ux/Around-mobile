@@ -172,6 +172,7 @@ export const terms: Record<'ar' | 'en', Doc> = {
           'يجب أن تكون مخولاً بإدارة الملعب أو الأكاديمية، وأن تكون البيانات والأسعار وأوقات العمل صحيحة ومحدثة.',
           'تخضع كل الإعلانات لمراجعة الإدارة قبل ظهورها، ويحق للإدارة رفض أو إيقاف أي إعلان.',
           'صاحب الملعب مسؤول عن سلامة المنشأة والالتزام بالحجوزات المؤكدة.',
+          'الشهر الأول مجاني، وبعده اشتراك شهري لكل ملعب أو أكاديمية حسب السعر المعلن في التطبيق، يدفع عن طريق رابط الدفع البنكي. إذا لم تسدد الفاتورة خلال مهلة السماح يتم إخفاء الإعلان مؤقتاً حتى السداد. لا يتم استرجاع رسوم الشهر الجاري عند الإلغاء.',
         ],
       },
       {
@@ -224,6 +225,7 @@ export const terms: Record<'ar' | 'en', Doc> = {
           'You must be authorised to manage the pitch or academy, and keep its details, prices and hours accurate.',
           'Every listing is reviewed before it goes live, and we may reject or suspend any listing.',
           'Owners are responsible for the safety of the facility and for honouring confirmed bookings.',
+          'The first month is free; after that each pitch or academy has a monthly subscription at the price shown in the app, paid through the bank payment link. Unpaid listings are hidden after the grace period until paid. The current month is not refunded on cancellation.',
         ],
       },
       { h: 'Content', p: ['You are responsible for photos, reviews and messages you post. Offensive or unlawful content is not allowed and may be removed, with the account suspended.'] },

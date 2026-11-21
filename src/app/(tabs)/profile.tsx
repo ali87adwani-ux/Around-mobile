@@ -143,6 +143,12 @@ export default function Profile() {
             value={myListings.length + myAcademyListings.length ? String(myListings.length + myAcademyListings.length) : undefined}
             onPress={() => router.push('/listings')}
           />
+          {(myListings.some((x) => (x.status ?? 'approved') === 'approved') || ownedAcademies.length > 0) && (
+            <>
+              <Divider />
+              <MenuItem icon="card-outline" label={t('billingTitle')} onPress={() => router.push('/billing')} />
+            </>
+          )}
           {isOwner && (
             <>
               <Divider />

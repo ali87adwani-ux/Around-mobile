@@ -5,7 +5,7 @@ import { ScrollView, View } from 'react-native';
 import { ProgramCard, Stepper } from '@/components/academy';
 import { ConfirmSheet, Sheet, useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { Badge, Button, Card, Chip, Divider, EmptyState, Field, HScroll, Row, Stat, Tap, Txt } from '@/components/ui';
+import { IconButton, Badge, Button, Card, Chip, Divider, EmptyState, Field, HScroll, Row, Stat, Tap, Txt } from '@/components/ui';
 import type { Level } from '@/data/types';
 import { dayLabel, formatDuration, formatHour } from '@/i18n/format';
 import { useApp } from '@/store/AppStore';
@@ -39,7 +39,7 @@ export default function AcademyAdmin() {
   if (!academy) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
-        <ScreenHeader title={t('academyDashboard')} />
+        <ScreenHeader title={t('academyDashboard')} right={<IconButton icon="card-outline" label={t('billingTitle')} onPress={() => router.push('/billing')} />} />
         <EmptyState icon="school-outline" title={t('noAcademy')} body={t('noAcademySub')} action={t('listAcademy')} onAction={() => router.push('/listings')} />
       </View>
     );
@@ -66,7 +66,7 @@ export default function AcademyAdmin() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <ScreenHeader title={t('academyDashboard')} />
+      <ScreenHeader title={t('academyDashboard')} right={<IconButton icon="card-outline" label={t('billingTitle')} onPress={() => router.push('/billing')} />} />
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingTop: 0, gap: space.lg, paddingBottom: space.xxl }}>
         {mode === 'demo' && <Badge label={t('demoMode')} icon="information-circle" color={colors.info} bg={colors.infoSoft} />}
         {ownedAcademies.length > 1 && (

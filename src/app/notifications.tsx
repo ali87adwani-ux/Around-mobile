@@ -39,6 +39,11 @@ const ICONS: Record<string, IconName> = {
   fixture_reminder: 'alarm',
   highlight: 'videocam',
   award: 'ribbon',
+  invoice_new: 'receipt',
+  invoice_due: 'alarm',
+  invoice_paid: 'checkmark-circle',
+  subscription_suspended: 'pause-circle',
+  payment_claimed: 'cash',
 };
 
 function ago(at: number, lang: 'ar' | 'en') {

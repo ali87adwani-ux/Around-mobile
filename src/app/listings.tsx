@@ -114,6 +114,9 @@ export default function Listings() {
           </Card>
         ))}
 
+        {[...myListings, ...myAcademyListings].some((x) => x.status === 'approved') && (
+          <Button title={t('billingTitle')} kind="secondary" icon="card-outline" onPress={() => router.push('/billing')} />
+        )}
         <Txt v="h3" style={{ marginTop: space.sm }}>
           {empty ? t('whatToList') : t('addMore')}
         </Txt>

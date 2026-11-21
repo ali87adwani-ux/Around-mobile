@@ -13,19 +13,21 @@ import * as api from '@/lib/api';
 import { ME_ID } from '@/data/seed';
 import { formatDay, formatHour, fromISODate } from '@/i18n/format';
 import type { StringKey } from '@/i18n/strings';
+import { fmtDate, invoiceBadge, subStatusBadge } from '@/components/billing';
 import { useAcademies } from '@/store/academies';
 import { useAdmin, type Role } from '@/store/admin';
 import { useApp } from '@/store/AppStore';
 import { ticketStatusStyle, useSupport, type TicketStatus } from '@/store/support';
 import { colors, fonts, radius, space } from '@/theme';
 
-type Tab = 'overview' | 'users' | 'pitches' | 'bookings' | 'tournaments' | 'dues' | 'academies' | 'support' | 'announcements';
+type Tab = 'overview' | 'users' | 'pitches' | 'bookings' | 'tournaments' | 'billing' | 'dues' | 'academies' | 'support' | 'announcements';
 const TABS: { key: Tab; label: StringKey; icon: IconName }[] = [
   { key: 'overview', label: 'adminOverview', icon: 'speedometer-outline' },
   { key: 'users', label: 'adminUsers', icon: 'people-outline' },
   { key: 'pitches', label: 'adminPitches', icon: 'football-outline' },
   { key: 'bookings', label: 'adminBookings', icon: 'calendar-outline' },
   { key: 'tournaments', label: 'adminTournaments', icon: 'trophy-outline' },
+  { key: 'billing', label: 'subscriptionsTab', icon: 'card-outline' },
   { key: 'dues', label: 'duesTab', icon: 'cash-outline' },
   { key: 'academies', label: 'adminAcademies', icon: 'school-outline' },
   { key: 'support', label: 'adminSupport', icon: 'headset-outline' },
@@ -63,6 +65,7 @@ export default function AdminDashboard() {
         {tab === 'pitches' && <Pitches />}
         {tab === 'bookings' && <Bookings />}
         {tab === 'tournaments' && <Tournaments />}
+        {tab === 'billing' && <BillingAdmin />}
         {tab === 'dues' && <Dues />}
         {tab === 'academies' && <AcademiesPanel />}
         {tab === 'support' && <SupportInbox />}
@@ -471,6 +474,157 @@ function Tournaments() {
           </Row>
         </Card>
       ))}
+    </>
+  );
+}
+
+/** Owner subscriptions: prices, free period, payment link, invoices to confirm. */
+function BillingAdmin() {
+  const { t, lang, money, mode, errText } = useApp();
+  const toast = useToast();
+  const [subs, setSubs] = useState<api.Subscription[]>([]);
+  const [invoices, setInvoices] = useState<api.Invoice[]>([]);
+  const [cfg, setCfg] = useState<api.AppSettings | null>(null);
+  const [filter, setFilter] = useState<'open' | 'paid' | 'subs'>('open');
+  const [saving, setSaving] = useState(false);
+  const load = useCallback(async () => {
+    if (mode !== 'live') return;
+    try {
+      await api.adminRunBilling().catch(() => 0);
+      const [s, i, c] = await Promise.all([api.billingOverview(true), api.fetchInvoices(), api.appSettings()]);
+      setSubs(s);
+      setInvoices(i);
+      setCfg(c);
+    } catch {}
+  }, [mode]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const sub = (id: string) => subs.find((x) => x.id === id);
+  const claimed = invoices.filter((i) => i.status === 'claimed');
+  const unpaid = invoices.filter((i) => i.status === 'unpaid');
+  const paid = invoices.filter((i) => i.status === 'paid');
+  const monthly = subs.filter((x) => x.status === 'active' || x.status === 'past_due').reduce((a, x) => a + x.price, 0);
+  const mark = async (id: string, st: 'paid' | 'void' | 'unpaid') => {
+    try {
+      await api.adminMarkInvoice(id, st);
+      toast(t('done'), 'success');
+      load();
+    } catch (e) {
+      toast(errText(api.errorCode(e)), 'error');
+    }
+  };
+  const field = { height: 46, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: space.md, fontFamily: fonts.medium, color: colors.text, ...webNoOutline };
+
+  return (
+    <>
+      <Row gap={space.md}>
+        <Card style={{ flex: 1, gap: 4 }}>
+          <Txt v="tiny" color={colors.textMuted}>{t('monthlyRevenue')}</Txt>
+          <Txt v="h2" color={colors.success}>{money(monthly)}</Txt>
+        </Card>
+        <Card style={{ flex: 1, gap: 4 }}>
+          <Txt v="tiny" color={colors.textMuted}>{t('awaitingPayment')}</Txt>
+          <Txt v="h2" color={colors.warning}>{money([...claimed, ...unpaid].reduce((a, i) => a + i.amount, 0))}</Txt>
+        </Card>
+      </Row>
+
+      {cfg && (
+        <Card style={{ gap: space.md }}>
+          <Txt v="h3">{t('billingSettings')}</Txt>
+          <Row gap={space.md}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Txt v="tiny" color={colors.textMuted}>{t('pricePitchMonthly')}</Txt>
+              <Stepper value={cfg.pricePitch} onChange={(v) => setCfg({ ...cfg, pricePitch: v })} min={0} max={1000} step={5} format={(v) => money(v)} />
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Txt v="tiny" color={colors.textMuted}>{t('priceAcademyMonthly')}</Txt>
+              <Stepper value={cfg.priceAcademy} onChange={(v) => setCfg({ ...cfg, priceAcademy: v })} min={0} max={1000} step={5} format={(v) => money(v)} />
+            </View>
+          </Row>
+          <Row gap={space.md}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Txt v="tiny" color={colors.textMuted}>{t('freeDays')}</Txt>
+              <Stepper value={cfg.trialDays} onChange={(v) => setCfg({ ...cfg, trialDays: v })} min={0} max={180} step={1} />
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Txt v="tiny" color={colors.textMuted}>{t('graceDays')}</Txt>
+              <Stepper value={cfg.graceDays} onChange={(v) => setCfg({ ...cfg, graceDays: v })} min={0} max={60} step={1} />
+            </View>
+          </Row>
+          <View style={{ gap: 4 }}>
+            <Txt v="tiny" color={colors.textMuted}>{t('bankPaymentLink')}</Txt>
+            <TextInput value={cfg.paymentLink} onChangeText={(v) => setCfg({ ...cfg, paymentLink: v })} autoCapitalize="none" keyboardType="url" placeholder="https://…" placeholderTextColor={colors.textFaint} style={field} />
+            <Txt v="tiny" color={colors.textFaint}>{t('bankPaymentLinkHint')}</Txt>
+          </View>
+          <Button
+            title={t('save')}
+            small
+            loading={saving}
+            onPress={async () => {
+              setSaving(true);
+              try {
+                await api.adminSetBilling(cfg);
+                toast(t('done'), 'success');
+              } catch (e) {
+                toast(errText(api.errorCode(e)), 'error');
+              }
+              setSaving(false);
+            }}
+          />
+        </Card>
+      )}
+
+      <Row gap={6} wrap>
+        <Chip label={`${t('toConfirm')} (${claimed.length + unpaid.length})`} selected={filter === 'open'} onPress={() => setFilter('open')} />
+        <Chip label={t('inv_paid')} selected={filter === 'paid'} onPress={() => setFilter('paid')} />
+        <Chip label={`${t('subscriptionsTab')} (${subs.length})`} selected={filter === 'subs'} onPress={() => setFilter('subs')} />
+      </Row>
+
+      {filter === 'subs' &&
+        (subs.length === 0 ? (
+          <EmptyState icon="card-outline" title={t('noSubscriptions')} />
+        ) : (
+          subs.map((x) => (
+            <Card key={x.id} style={{ gap: 4 }}>
+              <Row justify="space-between" gap={space.sm}>
+                <Txt v="bodyStrong" style={{ flex: 1 }} numberOfLines={1}>{x.listingName}</Txt>
+                {subStatusBadge(x.status, t)}
+              </Row>
+              <Txt v="caption" color={colors.textMuted}>
+                {x.ownerName} · {t(x.kind === 'pitch' ? 'adminPitches' : 'adminAcademies')} · {x.status === 'trial' ? t('freeUntil', { date: fmtDate(x.trialEndsAt, lang) }) : t('paidUntil', { date: fmtDate(x.paidUntil, lang) })}
+              </Txt>
+            </Card>
+          ))
+        ))}
+
+      {filter !== 'subs' &&
+        ((filter === 'open' ? [...claimed, ...unpaid] : paid).length === 0 ? (
+          <EmptyState icon="checkmark-done-outline" title={t('noInvoices')} />
+        ) : (
+          (filter === 'open' ? [...claimed, ...unpaid] : paid).map((inv) => (
+            <Card key={inv.id} style={{ gap: 6, borderWidth: inv.status === 'claimed' ? 1.5 : 0, borderColor: colors.info }}>
+              <Row justify="space-between">
+                <Txt v="h3">{money(inv.amount)}</Txt>
+                {invoiceBadge(inv.status, t)}
+              </Row>
+              <Txt v="caption" color={colors.textMuted}>
+                {sub(inv.subscriptionId)?.listingName} · {sub(inv.subscriptionId)?.ownerName}
+              </Txt>
+              <Txt v="tiny" color={colors.textMuted}>
+                {fmtDate(inv.periodStart, lang)} → {fmtDate(inv.periodEnd, lang)} · {t('dueOn', { date: fmtDate(inv.dueAt, lang) })}
+              </Txt>
+              {inv.status !== 'paid' ? (
+                <Row gap={space.sm}>
+                  <Button title={t('confirmPaid')} small icon="checkmark" style={{ flex: 1 }} onPress={() => mark(inv.id, 'paid')} />
+                  <Button title={t('voidInvoice')} small kind="ghost" style={{ flex: 1 }} onPress={() => mark(inv.id, 'void')} />
+                </Row>
+              ) : (
+                <Button title={t('undoPaid')} small kind="ghost" onPress={() => mark(inv.id, 'unpaid')} />
+              )}
+            </Card>
+          ))
+        ))}
     </>
   );
 }

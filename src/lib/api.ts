@@ -473,10 +473,29 @@ export const markDues = (id: string, paid: boolean) => rpc('admin_mark_dues', { 
 export const setCommission = (rate: number | null, pitchId?: string) => rpc('admin_set_commission', { p_rate: rate, p_pitch: pitchId ?? null });
 export const commissionRateFor = async (pitchId: string) => Number(await rpc<number>('commission_rate_for', { p_pitch: pitchId }));
 
-export async function appSettings(): Promise<{ commissionRate: number; clipRetentionDays: number }> {
+export interface AppSettings {
+  commissionRate: number;
+  clipRetentionDays: number;
+  pricePitch: number;
+  priceAcademy: number;
+  trialDays: number;
+  graceDays: number;
+  paymentLink: string;
+}
+
+export async function appSettings(): Promise<AppSettings> {
   const { data } = await db().from('app_settings').select('*');
-  const m = new Map((data ?? []).map((r: { key: string; value: unknown }) => [r.key, Number(r.value)]));
-  return { commissionRate: m.get('commission_rate') ?? 0.05, clipRetentionDays: m.get('clip_retention_days') ?? 14 };
+  const m = new Map((data ?? []).map((r: { key: string; value: unknown }) => [r.key, r.value]));
+  const n = (k: string, d: number) => (m.has(k) ? Number(m.get(k)) : d);
+  return {
+    commissionRate: n('commission_rate', 0.05),
+    clipRetentionDays: n('clip_retention_days', 14),
+    pricePitch: n('subscription_price_pitch', 100),
+    priceAcademy: n('subscription_price_academy', 100),
+    trialDays: n('trial_days', 30),
+    graceDays: n('grace_days', 7),
+    paymentLink: String(m.get('payment_link') ?? ''),
+  };
 }
 
 export async function fetchTournamentDetail(id: string, userId?: string) {
@@ -534,3 +553,54 @@ export async function fetchTrophies(userId: string): Promise<Trophy[]> {
   const data = await rpc<Record<string, any>[]>('player_trophies', { p_user: userId });
   return (data ?? []).map((r) => ({ tournamentId: r.tournament_id, name: { ar: r.name_ar, en: r.name_en }, kind: r.kind, value: r.value ?? undefined }));
 }
+
+/* ---------- owner subscriptions ---------- */
+
+export interface Subscription {
+  id: string;
+  ownerId: string;
+  ownerName: string;
+  kind: 'pitch' | 'academy';
+  listingId: string;
+  listingName: string;
+  status: 'trial' | 'active' | 'past_due' | 'suspended' | 'cancelled';
+  price: number;
+  trialEndsAt: string;
+  paidUntil: string;
+}
+
+export interface Invoice {
+  id: string;
+  subscriptionId: string;
+  ownerId: string;
+  periodStart: string;
+  periodEnd: string;
+  amount: number;
+  status: 'unpaid' | 'claimed' | 'paid' | 'void';
+  dueAt: string;
+  paymentLink: string;
+  note: string;
+}
+
+export async function billingOverview(all = false): Promise<Subscription[]> {
+  const data = await rpc<Record<string, any>[]>('billing_overview', { p_all: all });
+  return (data ?? []).map((r) => ({
+    id: r.subscription_id, ownerId: r.owner_id, ownerName: r.owner_name, kind: r.kind, listingId: r.listing_id, listingName: r.listing_name,
+    status: r.status, price: Number(r.price), trialEndsAt: r.trial_ends_at, paidUntil: r.paid_until,
+  }));
+}
+
+export async function fetchInvoices(): Promise<Invoice[]> {
+  const { data, error } = await db().from('invoices').select('*').order('due_at', { ascending: false }).limit(200);
+  if (error) throw error;
+  return (data ?? []).map((r: Record<string, any>) => ({
+    id: r.id, subscriptionId: r.subscription_id, ownerId: r.owner_id, periodStart: r.period_start, periodEnd: r.period_end, amount: Number(r.amount),
+    status: r.status, dueAt: r.due_at, paymentLink: r.payment_link ?? '', note: r.note ?? '',
+  }));
+}
+
+export const claimInvoice = (id: string, note = '') => rpc('claim_invoice_paid', { p_invoice: id, p_note: note });
+export const adminMarkInvoice = (id: string, status: 'paid' | 'unpaid' | 'void') => rpc('admin_mark_invoice', { p_invoice: id, p_status: status });
+export const adminRunBilling = () => rpc<number>('admin_run_billing');
+export const adminSetBilling = (p: { pricePitch: number; priceAcademy: number; trialDays: number; graceDays: number; paymentLink: string }) =>
+  rpc('admin_set_billing', { p_price_pitch: p.pricePitch, p_price_academy: p.priceAcademy, p_trial_days: p.trialDays, p_grace_days: p.graceDays, p_link: p.paymentLink });
