@@ -8,6 +8,7 @@ import { ToastProvider } from '@/components/overlays';
 import { AppProvider, useApp } from '@/store/AppStore';
 import { SupportProvider } from '@/store/support';
 import { AcademiesProvider } from '@/store/academies';
+import { AdminProvider } from '@/store/admin';
 import { colors } from '@/theme';
 
 // Layout direction is handled by the app itself (per selected language),
@@ -53,6 +54,7 @@ function RootNavigator() {
           <Stack.Screen name="academies" />
           <Stack.Screen name="academy/[id]" />
           <Stack.Screen name="academy-admin" />
+          <Stack.Screen name="admin" />
         </Stack.Protected>
       </Stack>
     </>
@@ -65,9 +67,11 @@ export default function RootLayout() {
       <AppProvider>
         <SupportProvider>
           <AcademiesProvider>
-            <ToastProvider>
-              <RootNavigator />
-            </ToastProvider>
+            <AdminProvider>
+              <ToastProvider>
+                <RootNavigator />
+              </ToastProvider>
+            </AdminProvider>
           </AcademiesProvider>
         </SupportProvider>
       </AppProvider>

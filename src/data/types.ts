@@ -9,6 +9,7 @@ export type Position = 'GK' | 'DEF' | 'MID' | 'FWD';
 export interface Pitch {
   id: string;
   ownerId?: string;
+  active?: boolean;
   lat?: number;
   lng?: number;
   name: L10n;

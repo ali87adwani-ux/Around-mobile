@@ -53,6 +53,7 @@ export async function fetchPitches(): Promise<Pitch[]> {
     tint: [r.tint[0], r.tint[1] ?? r.tint[0]],
     lat: r.lat ?? undefined,
     lng: r.lng ?? undefined,
+    active: r.active,
   }));
 }
 

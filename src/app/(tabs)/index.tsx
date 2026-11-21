@@ -2,12 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useIsFocused } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AcademyCard } from '@/components/academy';
 import { MatchCard, PitchCard, statusBadge } from '@/components/cards';
 import { useAcademies } from '@/store/academies';
+import { useAdmin } from '@/store/admin';
 import { Avatar, Card, HScroll, EmptyState, IconButton, PitchArt, Row, SectionHeader, Tap, Txt, useDir, type IconName } from '@/components/ui';
 import { dateFromOffset, formatDay, formatHour, fromISODate, offsetOf } from '@/i18n/format';
 import type { StringKey } from '@/i18n/strings';
@@ -22,6 +23,8 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const d = useDir();
   const { academies, programs: academyPrograms } = useAcademies();
+  const { activeAnnouncement } = useAdmin();
+  const [dismissed, setDismissed] = useState<string | null>(null);
   const focused = useIsFocused();
   const labels = { today: t('today'), tomorrow: t('tomorrow') };
 
@@ -149,6 +152,21 @@ export default function Home() {
           </Row>
         </Card>
       </View>
+
+      {/* Announcement from the app team */}
+      {activeAnnouncement && dismissed !== activeAnnouncement.id && (
+        <View style={{ paddingHorizontal: space.lg, marginTop: space.lg }}>
+          <Row gap={space.md} align="flex-start" style={{ backgroundColor: colors.infoSoft, borderRadius: radius.lg, padding: space.md }}>
+            <Ionicons name="megaphone" size={20} color={colors.info} />
+            <Txt v="caption" color={colors.text} style={{ flex: 1 }}>
+              {l(activeAnnouncement.body)}
+            </Txt>
+            <Tap onPress={() => setDismissed(activeAnnouncement.id)} hitSlop={10} accessibilityLabel="close">
+              <Ionicons name="close" size={18} color={colors.textMuted} />
+            </Tap>
+          </Row>
+        </View>
+      )}
 
       {/* Up next */}
       <View style={{ paddingHorizontal: space.lg, marginTop: space.xl }}>

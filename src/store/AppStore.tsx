@@ -47,6 +47,9 @@ interface PersistedState {
   demoAcademy: boolean;
   demoAdmin: boolean;
   demoPrices: Record<string, number>;
+  demoPitchInactive: string[];
+  demoTournamentStatus: Record<string, Tournament['status']>;
+  demoTournaments: Tournament[];
 }
 
 interface State extends PersistedState {
@@ -75,6 +78,9 @@ const initial = (): PersistedState => ({
   demoAcademy: false,
   demoAdmin: false,
   demoPrices: {},
+  demoPitchInactive: [],
+  demoTournamentStatus: {},
+  demoTournaments: [],
 });
 
 type Action =
@@ -94,6 +100,9 @@ type Action =
   | { type: 'setDemoOwner'; on: boolean }
   | { type: 'setDemoRole'; key: 'demoAcademy' | 'demoAdmin'; on: boolean }
   | { type: 'setDemoPrice'; pitchId: string; price: number }
+  | { type: 'setDemoPitchActive'; pitchId: string; active: boolean }
+  | { type: 'setDemoTournamentStatus'; id: string; status: Tournament['status'] }
+  | { type: 'addDemoTournament'; tournament: Tournament }
   | { type: 'signedOut' }
   | { type: 'reset' };
 
@@ -138,6 +147,12 @@ function reducer(state: State, a: Action): State {
       return { ...state, [a.key]: a.on };
     case 'setDemoPrice':
       return { ...state, demoPrices: { ...state.demoPrices, [a.pitchId]: a.price } };
+    case 'setDemoPitchActive':
+      return { ...state, demoPitchInactive: a.active ? state.demoPitchInactive.filter((x) => x !== a.pitchId) : [...state.demoPitchInactive, a.pitchId] };
+    case 'setDemoTournamentStatus':
+      return { ...state, demoTournamentStatus: { ...state.demoTournamentStatus, [a.id]: a.status } };
+    case 'addDemoTournament':
+      return { ...state, demoTournaments: [a.tournament, ...state.demoTournaments] };
     case 'signedOut':
       return { ...state, onboarded: false, profile: initial().profile };
     case 'reset':
@@ -175,6 +190,7 @@ interface Ctx {
   meId: string;
   me: Player;
   pitches: Pitch[];
+  allPitches: Pitch[];
   players: Player[];
   tournaments: Tournament[];
   allMatches: Match[];
@@ -327,22 +343,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   /* ---------- derived data ---------- */
   const meId = live ? userId ?? '' : ME_ID;
 
-  const pitches = useMemo(() => {
-    const base = live ? remote.pitches : seedPitches;
-    if (live) return base;
-    return base.map((p) => (state.demoPrices[p.id] ? { ...p, pricePerHour: state.demoPrices[p.id] } : p));
-  }, [live, remote.pitches, state.demoPrices]);
+  /** Every pitch including deactivated ones (admin). */
+  const allPitches = useMemo(() => {
+    if (live) return remote.pitches;
+    return seedPitches.map((p) => ({ ...p, active: !state.demoPitchInactive.includes(p.id), pricePerHour: state.demoPrices[p.id] ?? p.pricePerHour }));
+  }, [live, remote.pitches, state.demoPrices, state.demoPitchInactive]);
+  const pitches = useMemo(() => allPitches.filter((p) => p.active !== false), [allPitches]);
 
   const allMatches = useMemo(() => (live ? remote.matches : [...state.createdMatches, ...seedMatches]), [live, remote.matches, state.createdMatches]);
 
   const tournaments = useMemo(() => {
     if (live) return remote.tournaments;
-    return seedTournaments.map((tr) => {
+    return [...state.demoTournaments, ...seedTournaments].map((base) => {
+      const tr = state.demoTournamentStatus[base.id] ? { ...base, status: state.demoTournamentStatus[base.id] } : base;
       const name = state.registrations[tr.id];
       if (!name) return tr;
       return { ...tr, teams: [...tr.teams, { id: 'mine', name: { ar: name, en: name }, played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, color: '#3E8DD8', captainId: ME_ID }] };
     });
-  }, [live, remote.tournaments, state.registrations]);
+  }, [live, remote.tournaments, state.registrations, state.demoTournaments, state.demoTournamentStatus]);
 
   const myBookings = live ? remote.bookings : state.bookings;
   const players = live ? remote.players : seedPlayers;
@@ -435,6 +453,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       meId,
       me,
       pitches,
+      allPitches,
       players,
       tournaments,
       allMatches,
@@ -638,7 +657,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return ok();
         }),
     };
-  }, [state, live, userId, role, authChecked, loading, lang, isRTL, t, l, money, errText, meId, me, pitches, players, tournaments, allMatches, myBookings, isJoined, bookedHours, loadBusy, refresh, isOwner, ownerPitches]);
+  }, [state, live, userId, role, authChecked, loading, lang, isRTL, t, l, money, errText, meId, me, pitches, allPitches, players, tournaments, allMatches, myBookings, isJoined, bookedHours, loadBusy, refresh, isOwner, ownerPitches]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
