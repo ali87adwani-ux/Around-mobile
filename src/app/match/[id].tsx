@@ -122,7 +122,7 @@ export default function MatchScreen() {
         {/* Lineup on a pitch */}
         <View style={{ gap: space.md }}>
           <Txt v="h2">{t('lineup')}</Txt>
-          <PitchArt tint={['#0B6E4F', '#14955F']} height={Math.max(320, half * 60 + 80)}>
+          <PitchArt tint={[colors.primary, '#1E56B3']} height={Math.max(320, half * 60 + 80)}>
             <View style={{ flex: 1, flexDirection: 'row', padding: space.lg }}>
               {[teamA, teamB].map((team, ti) => (
                 <View key={ti} style={{ flex: 1, alignItems: 'center', gap: space.sm }}>

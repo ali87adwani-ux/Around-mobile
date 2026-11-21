@@ -6,7 +6,7 @@ import type { Booking, Lang, Match, Pitch, Player, Profile, Tournament } from '@
 import { strings, type StringKey } from '@/i18n/strings';
 import { dateFromOffset, formatMoney, toISODate } from '@/i18n/format';
 
-const STORAGE_KEY = 'around.state.v2';
+const STORAGE_KEY = 'aldawri.state.v1';
 
 interface PersistedState {
   lang: Lang;
@@ -164,7 +164,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       level: state.profile.level,
       area: pitches[0].area,
       stats: { matches: 24 + played, goals: 11, assists: 9, mvp: 3, wins: 14, rating: 7.6 },
-      color: '#0B6E4F',
+      color: '#0B2E6F',
     };
   }, [state.profile, state.joinedMatchIds.length]);
 

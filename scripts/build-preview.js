@@ -11,7 +11,7 @@ const [, , distDir = 'dist-preview', outFile = 'preview/around.html'] = process.
 const html = fs.readFileSync(path.join(distDir, 'index.html'), 'utf8');
 const scripts = [...html.matchAll(/<script src="([^"]+)"[^>]*><\/script>/g)].map((m) => m[1]);
 
-const KEEP_FONTS = /(Ionicons|Cairo_(400|500|600|700|800))/;
+const KEEP_FONTS = /(Ionicons|IBMPlexSansArabic_(400|500|600|700))/;
 let js = scripts.map((src) => fs.readFileSync(path.join(distDir, src), 'utf8')).join('\n;\n');
 const missing = [];
 js = js.replace(/"(\/assets\/[^"]+\.(ttf|png))"/g, (all, p, ext) => {
@@ -28,13 +28,13 @@ if (/"\/_expo\/static\/js\/web\/[^"]+\.js"/.test(js)) throw new Error('Bundle st
 // Keep </script> sequences inside the bundle from closing the inline tag.
 js = js.replace(/<\/script/gi, '<\\/script');
 
-const page = `<title>Around</title>
-<meta name="theme-color" content="#0B6E4F">
+const page = `<title>Al Dawri</title>
+<meta name="theme-color" content="#0B2E6F">
 <style>
-  :root { --frame: #E3EAE6; --bg: #F5F7F6; }
+  :root { --frame: #E2E7EF; --bg: #F2F4F8; }
   html, body { height: 100%; }
   body { overflow: hidden; background: var(--frame); }
-  #root { display: flex; height: 100%; flex: 1; max-width: 460px; margin: 0 auto; background: var(--bg); box-shadow: 0 0 0 1px rgba(11,42,31,.06), 0 20px 60px rgba(11,42,31,.12); overflow: hidden; position: relative; }
+  #root { display: flex; height: 100%; flex: 1; max-width: 460px; margin: 0 auto; background: var(--bg); box-shadow: 0 0 0 1px rgba(11,31,68,.06), 0 20px 60px rgba(11,31,68,.12); overflow: hidden; position: relative; }
   @media (max-width: 500px) { #root { max-width: none; box-shadow: none; } }
 </style>
 <script>

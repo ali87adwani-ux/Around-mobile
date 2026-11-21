@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router, useIsFocused } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import React, { useMemo } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,7 +10,7 @@ import { Avatar, Card, HScroll, EmptyState, IconButton, PitchArt, Row, SectionHe
 import { dateFromOffset, formatDay, formatHour, fromISODate, offsetOf } from '@/i18n/format';
 import type { StringKey } from '@/i18n/strings';
 import { useApp } from '@/store/AppStore';
-import { colors, radius, space } from '@/theme';
+import { colors, fonts, radius, space } from '@/theme';
 
 type Upcoming = { key: string; kind: 'booking' | 'match'; when: number; title: string; sub: string; onPress: () => void };
 
@@ -17,6 +19,7 @@ export default function Home() {
   const { t, l, lang, state, me, allMatches, pitches, tournaments, getPitch, isJoined } = app;
   const insets = useSafeAreaInsets();
   const d = useDir();
+  const focused = useIsFocused();
   const labels = { today: t('today'), tomorrow: t('tomorrow') };
 
   const upcoming: Upcoming[] = useMemo(() => {
@@ -54,50 +57,95 @@ export default function Home() {
   const topPitches = [...pitches].sort((a, b) => b.rating - a.rating).slice(0, 4);
   const live = tournaments.find((x) => x.status === 'live');
 
-  const quick: { icon: IconName; label: StringKey; onPress: () => void; bg: string; fg: string }[] = [
-    { icon: 'calendar', label: 'quickBook', onPress: () => router.push('/pitches'), bg: colors.primary, fg: colors.white },
-    { icon: 'people', label: 'quickJoin', onPress: () => router.push('/matches'), bg: colors.accent, fg: colors.primaryDark },
-    { icon: 'add-circle', label: 'quickCreate', onPress: () => router.push('/match/create'), bg: colors.infoSoft, fg: colors.info },
-    { icon: 'trophy', label: 'quickCups', onPress: () => router.push('/tournaments'), bg: colors.warningSoft, fg: colors.warning },
+  const quick: { icon: IconName; label: StringKey; onPress: () => void }[] = [
+    { icon: 'calendar-outline', label: 'quickBook', onPress: () => router.push('/pitches') },
+    { icon: 'people-outline', label: 'quickJoin', onPress: () => router.push('/matches') },
+    { icon: 'add-circle-outline', label: 'quickCreate', onPress: () => router.push('/match/create') },
+    { icon: 'trophy-outline', label: 'quickCups', onPress: () => router.push('/tournaments') },
   ];
 
   const firstName = state.profile.name.split(' ')[0] || l(me.name);
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ paddingBottom: space.xxl }} showsVerticalScrollIndicator={false}>
-      {/* Header */}
-      <View style={{ paddingTop: insets.top + space.md, paddingHorizontal: space.lg, paddingBottom: space.lg }}>
+      {focused && <StatusBar style="light" />}
+      {/* Header band */}
+      <View style={{ backgroundColor: colors.primary, paddingTop: insets.top + space.md, paddingHorizontal: space.lg, paddingBottom: 64, borderBottomLeftRadius: 28, borderBottomRightRadius: 28, gap: space.lg }}>
         <Row justify="space-between">
           <Row gap={space.md} style={{ flex: 1 }}>
             <Tap onPress={() => router.push('/profile')}>
-              <Avatar name={state.profile.name || 'Me'} size={46} />
+              <Avatar name={state.profile.name || 'Me'} size={44} color={colors.accentDark} />
             </Tap>
             <View style={{ flex: 1 }}>
-              <Txt v="h2" numberOfLines={1}>
+              <Txt v="h3" color={colors.white} numberOfLines={1}>
                 {t('greeting', { name: firstName })}
               </Txt>
-              <Txt v="caption" color={colors.textMuted}>
+              <Txt v="caption" color="rgba(255,255,255,0.7)">
                 {t('greetingSub')}
               </Txt>
             </View>
           </Row>
-          <IconButton icon="search" label="search" onPress={() => router.push('/pitches')} />
+          <Row gap={8}>
+            <IconButton icon="search" label="search" color={colors.white} bg="rgba(255,255,255,0.12)" onPress={() => router.push('/pitches')} />
+            <IconButton icon="notifications-outline" label="notifications" color={colors.white} bg="rgba(255,255,255,0.12)" badge={upcoming.length > 0} onPress={() => router.push('/bookings')} />
+          </Row>
         </Row>
+
+        {/* Summary card, like an account balance */}
+        <LinearGradient colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.04)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: radius.xl, padding: space.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', gap: space.md, overflow: 'hidden' }}>
+          <View style={{ position: 'absolute', width: 180, height: 180, borderRadius: 90, borderWidth: 24, borderColor: 'rgba(124,192,245,0.10)', top: -60, [d.isRTL ? 'left' : 'right']: -50 }} />
+          <Row justify="space-between">
+            <Txt v="caption" color="rgba(255,255,255,0.75)">
+              {t('yourActivity')} · {t('thisSeason')}
+            </Txt>
+            <Tap onPress={() => router.push('/profile')} hitSlop={10}>
+              <Ionicons name={d.forward} size={18} color="rgba(255,255,255,0.8)" />
+            </Tap>
+          </Row>
+          <Row gap={6} align="flex-end">
+            <Txt style={{ fontSize: 34, lineHeight: 42, fontFamily: fonts.bold }} color={colors.white}>
+              {me.stats.rating.toFixed(1)}
+            </Txt>
+            <Txt v="caption" color={colors.accent} style={{ marginBottom: 6 }}>
+              {t('rating')}
+            </Txt>
+          </Row>
+          <Row>
+            {[
+              [me.stats.matches, t('matchesPlayed')],
+              [me.stats.goals, t('goals')],
+              [state.bookings.filter((x) => x.status === 'confirmed').length, t('bookingsCount')],
+            ].map(([v, label], i) => (
+              <View key={i} style={{ flex: 1, gap: 0, borderColor: 'rgba(255,255,255,0.12)', [d.isRTL ? 'borderRightWidth' : 'borderLeftWidth']: i === 0 ? 0 : 1, paddingHorizontal: i === 0 ? 0 : space.md }}>
+                <Txt v="h3" color={colors.white}>
+                  {v}
+                </Txt>
+                <Txt v="tiny" color="rgba(255,255,255,0.65)">
+                  {label}
+                </Txt>
+              </View>
+            ))}
+          </Row>
+        </LinearGradient>
       </View>
 
       {/* Quick actions */}
-      <Row gap={space.sm} style={{ paddingHorizontal: space.lg }}>
-        {quick.map((q) => (
-          <Tap key={q.label} onPress={q.onPress} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
-            <View style={{ width: '100%', aspectRatio: 1, maxHeight: 76, borderRadius: radius.lg, backgroundColor: q.bg, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name={q.icon} size={26} color={q.fg} />
-            </View>
-            <Txt v="tiny" center numberOfLines={1}>
-              {t(q.label)}
-            </Txt>
-          </Tap>
-        ))}
-      </Row>
+      <View style={{ paddingHorizontal: space.lg, marginTop: -44 }}>
+        <Card style={{ paddingVertical: space.lg, paddingHorizontal: space.sm }}>
+          <Row>
+            {quick.map((q) => (
+              <Tap key={q.label} onPress={q.onPress} style={{ flex: 1, alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name={q.icon} size={24} color={colors.primary} />
+                </View>
+                <Txt v="tiny" center numberOfLines={1}>
+                  {t(q.label)}
+                </Txt>
+              </Tap>
+            ))}
+          </Row>
+        </Card>
+      </View>
 
       {/* Up next */}
       <View style={{ paddingHorizontal: space.lg, marginTop: space.xl }}>
@@ -158,7 +206,7 @@ export default function Home() {
                     {t('standings')} · {t('fixtures')}
                   </Txt>
                 </View>
-                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(200,241,105,0.18)', alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(124,192,245,0.18)', alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name="trophy" size={32} color={colors.accent} />
                 </View>
               </Row>

@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Platform, ScrollView, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Image, Platform, ScrollView, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Chip, Field, Row, Tap, Txt, haptic, type IconName } from '@/components/ui';
 import type { Lang, Level, Position } from '@/data/types';
@@ -25,7 +26,7 @@ function FadeIn({ children, style }: { children: React.ReactNode; style?: StyleP
 }
 
 export default function Onboarding() {
-  const { t, state, dispatch, lang } = useApp();
+  const { t, state, dispatch, lang, isRTL } = useApp();
   const insets = useSafeAreaInsets();
   // step 0 = language, 1..3 = slides, 4 = profile
   const [step, setStep] = useState(0);
@@ -119,13 +120,12 @@ export default function Onboarding() {
 
   const slide = step >= 1 ? slides[step - 1] : null;
   return (
-    <LinearGradient colors={[colors.primary, colors.primaryDark, '#03271C']} style={{ flex: 1 }}>
+    <LinearGradient colors={[colors.primary, colors.primaryDark, colors.primaryDeep]} style={{ flex: 1 }}>
+      <StatusBar style="light" />
       <View style={{ flex: 1, paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.lg, paddingHorizontal: space.xl }}>
         <Row justify="space-between" style={{ height: 40 }}>
           <Row gap={8}>
-            <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="football" size={22} color={colors.primaryDark} />
-            </View>
+            <Image source={require('../../assets/brand/logo-mark.png')} style={{ width: 40, height: 40 }} accessibilityLabel={t('appName')} />
             <Txt v="h2" color={colors.white}>
               {t('appName')}
             </Txt>
@@ -142,6 +142,7 @@ export default function Onboarding() {
         <FadeIn key={step} style={{ flex: 1, justifyContent: 'center', gap: space.xl }}>
           {step === 0 ? (
             <>
+              <Image source={require('../../assets/brand/logo-mark.png')} style={{ width: 96, height: 96, alignSelf: isRTL ? 'flex-end' : 'flex-start' }} />
               <View style={{ gap: 6 }}>
                 <Txt v="display" color={colors.white}>
                   {t('tagline')}
@@ -158,7 +159,7 @@ export default function Onboarding() {
           ) : (
             slide && (
               <>
-                <View style={{ alignSelf: 'center', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(200,241,105,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ alignSelf: 'center', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(124,192,245,0.12)', alignItems: 'center', justifyContent: 'center' }}>
                   <View style={{ width: 120, height: 120, borderRadius: 60, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
                     <Ionicons name={slide.icon} size={56} color={colors.primaryDark} />
                   </View>
@@ -184,7 +185,7 @@ export default function Onboarding() {
               ))}
             </Row>
           )}
-          <Button title={t('continue')} kind="accent" icon={undefined} onPress={() => go(step + 1)} />
+          <Button title={t('continue')} kind="light" onPress={() => go(step + 1)} />
         </View>
       </View>
     </LinearGradient>

@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { FavButton } from '@/components/cards';
 import { Sheet, useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -74,6 +75,7 @@ export default function PitchScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <StatusBar style="light" />
       <ScreenHeader transparent light right={<FavButton id={pitch.id} size={42} />} />
       <ScrollView contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
         <PitchArt tint={pitch.tint} height={260 + insets.top} radiusSize={0}>
@@ -202,7 +204,7 @@ export default function PitchScreen() {
                   </Txt>
                 </Row>
                 <Row gap={4}>
-                  <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: '#E9EDEB' }} />
+                  <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: colors.surfaceMuted }} />
                   <Txt v="tiny" color={colors.textMuted}>
                     {t('booked')}
                   </Txt>
@@ -229,7 +231,7 @@ export default function PitchScreen() {
                       borderRadius: radius.md,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      backgroundColor: sel ? colors.primary : inRange ? colors.primarySoft : available ? colors.card : '#E9EDEB',
+                      backgroundColor: sel ? colors.primary : inRange ? colors.primarySoft : available ? colors.card : colors.surfaceMuted,
                       borderWidth: 1,
                       borderColor: sel ? colors.primary : inRange ? colors.primary : available ? colors.border : 'transparent',
                     }}

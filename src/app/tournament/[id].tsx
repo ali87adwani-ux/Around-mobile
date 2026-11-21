@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { statusBadge } from '@/components/cards';
 import { Sheet, useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -60,6 +61,7 @@ export default function TournamentScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <StatusBar style="light" />
       <ScreenHeader transparent light />
       <ScrollView contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
         <PitchArt tint={tour.tint} height={250 + insets.top} radiusSize={0}>

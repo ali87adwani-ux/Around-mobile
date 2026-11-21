@@ -1,6 +1,6 @@
 const en = {
-  appName: 'Around',
-  tagline: 'Book pitches. Join games. Play more.',
+  appName: 'Al Dawri',
+  tagline: 'Your pitch, your game, your league.',
   // onboarding
   chooseLanguage: 'Choose your language',
   continue: 'Continue',
@@ -34,6 +34,9 @@ const en = {
   quickCreate: 'Create game',
   quickCups: 'Tournaments',
   upNext: 'Up next',
+  yourActivity: 'Your activity',
+  thisSeason: 'This season',
+  bookingsCount: 'Bookings',
   noUpcoming: 'Nothing planned yet',
   noUpcomingSub: 'Book a pitch or join a game to see it here.',
   gamesNearYou: 'Games near you',
@@ -212,8 +215,8 @@ const en = {
 export type StringKey = keyof typeof en;
 
 const ar: Record<StringKey, string> = {
-  appName: 'أراوند',
-  tagline: 'احجز ملعبك، دش مباراة، والعب أكثر.',
+  appName: 'الدوري',
+  tagline: 'ملعبك، مباراتك، ودوريك.',
   chooseLanguage: 'اختار لغتك',
   continue: 'كمّل',
   skip: 'تخطّى',
@@ -244,6 +247,9 @@ const ar: Record<StringKey, string> = {
   quickCreate: 'سوّ مباراة',
   quickCups: 'البطولات',
   upNext: 'الجاي',
+  yourActivity: 'نشاطك',
+  thisSeason: 'هالموسم',
+  bookingsCount: 'حجوزات',
   noUpcoming: 'ماكو شي مرتّب للحين',
   noUpcomingSub: 'احجز ملعب أو دش مباراة وبتطلع لك هني.',
   gamesNearYou: 'مباريات قريبة منك',

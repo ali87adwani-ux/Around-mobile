@@ -18,7 +18,7 @@ export const pitches: Pitch[] = [
     amenities: ['parking', 'showers', 'lights', 'cafe', 'changing', 'balls'],
     openFrom: 14,
     openTo: 24,
-    tint: ['#0B6E4F', '#19A46E'],
+    tint: ['#0B2E6F', '#1E56B3'],
   },
   {
     id: 'p2',
@@ -35,7 +35,7 @@ export const pitches: Pitch[] = [
     amenities: ['lights', 'changing', 'balls'],
     openFrom: 15,
     openTo: 24,
-    tint: ['#1D4E89', '#3C7DD9'],
+    tint: ['#0E4D7A', '#2A86C4'],
   },
   {
     id: 'p3',
@@ -52,7 +52,7 @@ export const pitches: Pitch[] = [
     amenities: ['parking', 'showers', 'lights', 'cafe', 'changing', 'balls', 'wifi'],
     openFrom: 10,
     openTo: 24,
-    tint: ['#2E7D32', '#7CB342'],
+    tint: ['#0F5F5C', '#1E9B8F'],
   },
   {
     id: 'p4',
@@ -69,7 +69,7 @@ export const pitches: Pitch[] = [
     amenities: ['parking', 'showers', 'lights', 'changing'],
     openFrom: 8,
     openTo: 23,
-    tint: ['#5D4037', '#A1887F'],
+    tint: ['#2B3A55', '#55698C'],
   },
   {
     id: 'p5',
@@ -86,7 +86,7 @@ export const pitches: Pitch[] = [
     amenities: ['lights', 'cafe'],
     openFrom: 16,
     openTo: 24,
-    tint: ['#6A1B9A', '#AB47BC'],
+    tint: ['#3A2F7A', '#6457C2'],
   },
   {
     id: 'p6',
@@ -103,7 +103,7 @@ export const pitches: Pitch[] = [
     amenities: ['parking', 'lights', 'changing', 'cafe'],
     openFrom: 12,
     openTo: 24,
-    tint: ['#00695C', '#26A69A'],
+    tint: ['#0B4466', '#2E7FAE'],
   },
 ];
 
@@ -158,7 +158,7 @@ export const tournaments: Tournament[] = [
     maxTeams: 8,
     entryFee: 60,
     prize: 500,
-    tint: ['#0B6E4F', '#0F2F24'],
+    tint: ['#0B2E6F', '#04132F'],
     teams: [
       t('a', 'الصقور', 'Falcons', '#0B6E4F', 3, 3, 0, 14, 4),
       t('b', 'النمور', 'Tigers', '#E65100', 3, 2, 0, 10, 6),
@@ -186,7 +186,7 @@ export const tournaments: Tournament[] = [
     maxTeams: 12,
     entryFee: 80,
     prize: 750,
-    tint: ['#1D4E89', '#0D1F3A'],
+    tint: ['#1E56B3', '#071E4B'],
     teams: [
       t('g', 'شباب السالمية', 'Salmiya Youth', '#1D4E89', 0, 0, 0, 0, 0),
       t('h', 'نجوم الجهراء', 'Jahra Stars', '#E65100', 0, 0, 0, 0, 0),
@@ -206,7 +206,7 @@ export const tournaments: Tournament[] = [
     maxTeams: 4,
     entryFee: 150,
     prize: 1200,
-    tint: ['#5D4037', '#26170F'],
+    tint: ['#3B4A66', '#151E30'],
     teams: [
       t('l', 'الصاعقة', 'Thunder', '#5D4037', 3, 3, 0, 9, 2),
       t('m', 'الحرس', 'Guardians', '#00695C', 3, 1, 1, 5, 5),

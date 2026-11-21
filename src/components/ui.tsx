@@ -40,9 +40,9 @@ export const webNoOutline = (Platform.OS === 'web' ? { outlineStyle: 'none' } : 
 
 type Variant = 'display' | 'h1' | 'h2' | 'h3' | 'body' | 'bodyStrong' | 'caption' | 'label' | 'tiny';
 const variantStyle: Record<Variant, TextStyle> = {
-  display: { fontSize: 30, fontFamily: fonts.black, lineHeight: 42 },
-  h1: { fontSize: 24, fontFamily: fonts.bold, lineHeight: 36 },
-  h2: { fontSize: 19, fontFamily: fonts.bold, lineHeight: 30 },
+  display: { fontSize: 30, fontFamily: fonts.black, lineHeight: 40 },
+  h1: { fontSize: 24, fontFamily: fonts.bold, lineHeight: 34 },
+  h2: { fontSize: 19, fontFamily: fonts.bold, lineHeight: 28 },
   h3: { fontSize: 16, fontFamily: fonts.bold, lineHeight: 26 },
   body: { fontSize: 15, fontFamily: fonts.regular, lineHeight: 24 },
   bodyStrong: { fontSize: 15, fontFamily: fonts.semibold, lineHeight: 24 },
@@ -135,7 +135,7 @@ export function Tap({ style, onPress, haptics = true, scale = 0.97, children, ..
   );
 }
 
-type BtnKind = 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent' | 'dark';
+type BtnKind = 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent' | 'dark' | 'light';
 const btnColors: Record<BtnKind, { bg: string; fg: string; border?: string }> = {
   primary: { bg: colors.primary, fg: colors.white },
   accent: { bg: colors.accent, fg: colors.primaryDark },
@@ -143,6 +143,7 @@ const btnColors: Record<BtnKind, { bg: string; fg: string; border?: string }> = 
   ghost: { bg: 'transparent', fg: colors.text, border: colors.border },
   danger: { bg: colors.dangerSoft, fg: colors.danger },
   dark: { bg: colors.text, fg: colors.white },
+  light: { bg: colors.white, fg: colors.primary },
 };
 
 export function Button({
@@ -441,7 +442,7 @@ export function Stat({ value, label, icon, color = colors.primary }: { value: st
 export function Segmented<T extends string>({ options, value, onChange }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
   const { isRTL } = useApp();
   return (
-    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', backgroundColor: '#E9EFEC', borderRadius: radius.md, padding: 4 }}>
+    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', backgroundColor: colors.surfaceMuted, borderRadius: radius.md, padding: 4 }}>
       {options.map((o) => {
         const sel = o.value === value;
         return (

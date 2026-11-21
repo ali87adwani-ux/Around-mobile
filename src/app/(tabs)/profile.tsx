@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Image, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PitchCard } from '@/components/cards';
 import { ConfirmSheet, Sheet, useToast } from '@/components/overlays';
@@ -101,6 +101,7 @@ export default function Profile() {
       </View>
 
       <View style={{ paddingHorizontal: space.lg, gap: space.sm, alignItems: 'center' }}>
+        <Image source={require('../../../assets/brand/logo-mark.png')} style={{ width: 44, height: 44, opacity: 0.9 }} />
         <Tap onPress={() => setReset(true)} hitSlop={8}>
           <Txt v="caption" color={colors.danger} center>
             {t('resetApp')}

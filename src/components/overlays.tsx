@@ -32,7 +32,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 
   const icon: Record<ToastKind, IconName> = { success: 'checkmark-circle', info: 'information-circle', error: 'alert-circle' };
-  const tint: Record<ToastKind, string> = { success: colors.accent, info: '#9EC1FF', error: '#FF9A9A' };
+  const tint: Record<ToastKind, string> = { success: '#6FE3B0', info: colors.accent, error: '#FF9A9A' };
 
   return (
     <ToastCtx.Provider value={show}>

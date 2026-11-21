@@ -16,8 +16,8 @@ export function PlayerCard({ player, displayName }: { player: Player; displayNam
     [s.mvp, t('mvp')],
   ];
   return (
-    <LinearGradient colors={[colors.primary, colors.primaryDark, '#032A1E']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: radius.xl, padding: space.xl, gap: space.xl, overflow: 'hidden' }}>
-      <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, borderWidth: 28, borderColor: 'rgba(200,241,105,0.07)', top: -70, right: -60 }} />
+    <LinearGradient colors={[colors.primary, colors.primaryDark, colors.primaryDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: radius.xl, padding: space.xl, gap: space.xl, overflow: 'hidden' }}>
+      <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, borderWidth: 28, borderColor: 'rgba(124,192,245,0.08)', top: -70, right: -60 }} />
       <Row gap={space.lg}>
         <Avatar name={displayName ?? l(player.name)} color={player.id === 'me' ? colors.accentDark : player.color} size={68} ring />
         <View style={{ flex: 1, gap: 2 }}>

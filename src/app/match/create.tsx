@@ -160,7 +160,7 @@ export default function CreateMatch() {
                   key={h}
                   disabled={!ok}
                   onPress={() => setHour(h)}
-                  style={{ width: '23%', height: 42, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: sel ? colors.primary : ok ? colors.card : '#E9EDEB', borderWidth: 1, borderColor: sel ? colors.primary : ok ? colors.border : 'transparent' }}
+                  style={{ width: '23%', height: 42, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: sel ? colors.primary : ok ? colors.card : colors.surfaceMuted, borderWidth: 1, borderColor: sel ? colors.primary : ok ? colors.border : 'transparent' }}
                 >
                   <Txt v="tiny" color={sel ? colors.white : ok ? colors.text : colors.textFaint} center>
                     {formatHour(h, lang)}

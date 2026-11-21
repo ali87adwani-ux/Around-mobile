@@ -1,4 +1,6 @@
-# Around | أراوند ⚽
+<img src="assets/brand/app-icon-preview.png" width="96" alt="" />
+
+# Al Dawri | الدوري
 
 A bilingual (Arabic / English) football community app built with **React Native + Expo**:
 book pitches, join or create pickup games, compete in tournaments, and track your stats.
