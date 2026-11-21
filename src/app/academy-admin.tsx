@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { ProgramCard, Stepper } from '@/components/academy';
@@ -39,7 +40,7 @@ export default function AcademyAdmin() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <ScreenHeader title={t('academyDashboard')} />
-        <EmptyState icon="school-outline" title={t('noAcademy')} body={t('ownerNoPitchesSub')} />
+        <EmptyState icon="school-outline" title={t('noAcademy')} body={t('noAcademySub')} action={t('listAcademy')} onAction={() => router.push('/listings')} />
       </View>
     );
   }

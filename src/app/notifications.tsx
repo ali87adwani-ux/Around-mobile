@@ -21,6 +21,8 @@ const ICONS: Record<string, IconName> = {
   pitch_approved: 'checkmark-circle',
   pitch_rejected: 'alert-circle',
   enrollment_new: 'school',
+  academy_approved: 'school',
+  academy_rejected: 'alert-circle',
   announcement: 'megaphone',
 };
 

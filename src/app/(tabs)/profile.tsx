@@ -56,7 +56,7 @@ export default function Profile() {
   const upcomingBookings = myBookings.filter((b) => b.status === 'confirmed').length;
   const joinedCount = allMatches.filter((m) => isJoined(m.id)).length;
   const { tickets } = useSupport();
-  const { ownedAcademies } = useAcademies();
+  const { ownedAcademies, myAcademyListings } = useAcademies();
   const eng = useEngagement();
   const openTickets = tickets.filter((tk) => tk.status === 'answered').length;
   const favs = pitches.filter((p) => state.favorites.includes(p.id));
@@ -134,9 +134,9 @@ export default function Profile() {
           <Divider />
           <MenuItem
             icon="business-outline"
-            label={myListings.length ? t('myPitches') : t('listPitch')}
-            value={myListings.length ? String(myListings.length) : undefined}
-            onPress={() => router.push(myListings.length ? '/listings' : '/listing/new')}
+            label={myListings.length + myAcademyListings.length ? t('myListings') : t('addListing')}
+            value={myListings.length + myAcademyListings.length ? String(myListings.length + myAcademyListings.length) : undefined}
+            onPress={() => router.push('/listings')}
           />
           {isOwner && (
             <>

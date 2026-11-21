@@ -17,6 +17,23 @@ export interface Academy {
   governorate: string;
   rating: number;
   tint: [string, string];
+  active?: boolean;
+  /** Academies added by owners stay 'pending' until an admin approves them. */
+  status?: 'pending' | 'approved' | 'rejected';
+}
+export interface AcademyInput {
+  name: string;
+  area: string;
+  governorate: string;
+  about: string;
+  phone: string;
+  note: string;
+}
+export interface PendingAcademy {
+  academyId: string;
+  ownerName: string;
+  phone: string;
+  note: string;
 }
 export interface Program {
   id: string;
@@ -44,7 +61,17 @@ export interface Enrollment {
 export type ProgramInput = Omit<Program, 'id' | 'academyId' | 'enrolled'>;
 
 interface Ctx {
+  /** Live academies players can browse. */
   academies: Academy[];
+  /** Every academy the user can see, including hidden or pending ones (admin). */
+  allAcademies: Academy[];
+  /** Academies the user listed, with their review state. */
+  myAcademyListings: Academy[];
+  submitAcademy: (a: AcademyInput) => Promise<Result>;
+  withdrawAcademy: (id: string) => Promise<Result>;
+  /** Admin: academies waiting for approval. */
+  loadPendingAcademies: () => Promise<PendingAcademy[]>;
+  reviewAcademy: (id: string, approve: boolean) => Promise<Result>;
   programs: Program[];
   myEnrollments: Enrollment[];
   /** Academies owned by the signed-in user (academy owner dashboard). */
@@ -83,12 +110,13 @@ const demoNames = ['يوسف', 'عبدالعزيز', 'حمد', 'فيصل', 'سع
 interface DemoState {
   programs: Program[];
   enrollments: Enrollment[];
+  listings?: Academy[];
 }
 
 export function AcademiesProvider({ children }: { children: React.ReactNode }) {
   const { mode, meId, role, state: app } = useApp();
   const live = mode === 'live';
-  const [academies, setAcademies] = useState<Academy[]>(live ? [] : seedAcademies);
+  const [liveAcademies, setAcademies] = useState<Academy[]>([]);
   const [demo, setDemo] = useState<DemoState>({ programs: seedPrograms, enrollments: [] });
   const [livePrograms, setLivePrograms] = useState<Program[]>([]);
   const [liveEnrollments, setLiveEnrollments] = useState<Enrollment[]>([]);
@@ -119,6 +147,7 @@ export function AcademiesProvider({ children }: { children: React.ReactNode }) {
         (a.data ?? []).map((r: Record<string, any>) => ({
           id: r.id, ownerId: r.owner_id ?? undefined, name: { ar: r.name_ar, en: r.name_en }, area: { ar: r.area_ar, en: r.area_en },
           about: { ar: r.about_ar, en: r.about_en }, governorate: r.governorate, rating: Number(r.rating), tint: [r.tint[0], r.tint[1] ?? r.tint[0]],
+          active: r.active, status: r.status ?? 'approved',
         })),
       );
       setLivePrograms(
@@ -139,10 +168,14 @@ export function AcademiesProvider({ children }: { children: React.ReactNode }) {
   }, [reload, role]);
 
   const value = useMemo<Ctx>(() => {
+    const allAcademies: Academy[] = live ? liveAcademies : [...(demo.listings ?? []), ...seedAcademies];
+    const academies = allAcademies.filter((a) => a.active !== false && (a.status ?? 'approved') === 'approved');
+    const myAcademyListings = allAcademies.filter((a) => a.ownerId === meId && a.status);
     const programs = live ? livePrograms : demo.programs;
     const allEnrollments = live ? liveEnrollments : demo.enrollments;
     const demoAcademyOwner = !live && app.demoAcademy;
-    const ownedAcademies = live ? academies.filter((a) => a.ownerId === meId) : demoAcademyOwner ? academies.slice(0, 1) : [];
+    const mineApproved = allAcademies.filter((a) => a.ownerId === meId && (a.status ?? 'approved') === 'approved');
+    const ownedAcademies = live || mineApproved.length ? mineApproved : demoAcademyOwner ? academies.slice(0, 1) : [];
     const ownedIds = new Set(ownedAcademies.map((a) => a.id));
     const ownedProgramIds = new Set(programs.filter((p) => ownedIds.has(p.academyId)).map((p) => p.id));
     // Demo: fake existing students so the owner dashboard has content.
@@ -165,6 +198,50 @@ export function AcademiesProvider({ children }: { children: React.ReactNode }) {
     };
     return {
       academies,
+      allAcademies,
+      myAcademyListings,
+      submitAcademy: (a) =>
+        run(async () => {
+          if (live && supabase) {
+            const { error } = await supabase.rpc('submit_academy', { p_name: a.name, p_area: a.area, p_governorate: a.governorate, p_about: a.about, p_phone: a.phone, p_note: a.note });
+            if (error) throw error;
+            await reload();
+            return;
+          }
+          const row: Academy = {
+            id: `al${Date.now()}`, ownerId: meId, name: { ar: a.name, en: a.name }, area: { ar: a.area, en: a.area }, about: { ar: a.about, en: a.about },
+            governorate: a.governorate, rating: 0, tint: ['#0F5F5C', '#1E9B8F'], active: false, status: 'pending',
+          };
+          setDemo((d) => ({ ...d, listings: [row, ...(d.listings ?? [])] }));
+        }),
+      withdrawAcademy: (id) =>
+        run(async () => {
+          if (live && supabase) {
+            const { error } = await supabase.rpc('withdraw_academy', { p_academy: id });
+            if (error) throw error;
+            await reload();
+            return;
+          }
+          setDemo((d) => ({ ...d, listings: (d.listings ?? []).filter((x) => x.id !== id) }));
+        }),
+      loadPendingAcademies: async () => {
+        if (live && supabase) {
+          const { data, error } = await supabase.rpc('admin_academy_submissions');
+          if (error) return [];
+          return ((data ?? []) as { academy_id: string; owner_name: string; contact_phone: string; note: string }[]).map((r) => ({ academyId: r.academy_id, ownerName: r.owner_name, phone: r.contact_phone, note: r.note }));
+        }
+        return (demo.listings ?? []).filter((x) => x.status === 'pending').map((x) => ({ academyId: x.id, ownerName: app.profile.name, phone: '', note: '' }));
+      },
+      reviewAcademy: (id, approve) =>
+        run(async () => {
+          if (live && supabase) {
+            const { error } = await supabase.rpc('admin_review_academy', { p_academy: id, p_approve: approve });
+            if (error) throw error;
+            await reload();
+            return;
+          }
+          setDemo((d) => ({ ...d, listings: (d.listings ?? []).map((x) => (x.id === id ? { ...x, status: approve ? 'approved' : 'rejected', active: approve } : x)) }));
+        }),
       programs,
       myEnrollments: allEnrollments.filter((e) => e.userId === meId),
       ownedAcademies,
@@ -230,7 +307,7 @@ export function AcademiesProvider({ children }: { children: React.ReactNode }) {
           setDemo((d) => ({ programs: d.programs.filter((x) => x.id !== id), enrollments: d.enrollments.filter((e) => e.programId !== id) }));
         }),
     };
-  }, [live, livePrograms, liveEnrollments, demo, academies, meId, role, app.demoAcademy, reload]);
+  }, [live, livePrograms, liveEnrollments, demo, liveAcademies, meId, role, app.demoAcademy, app.profile.name, reload]);
 
   return <C.Provider value={value}>{children}</C.Provider>;
 }

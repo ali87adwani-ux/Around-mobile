@@ -61,6 +61,7 @@ function RootNavigator() {
           <Stack.Screen name="teams" />
           <Stack.Screen name="listings" />
           <Stack.Screen name="listing/new" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="listing/academy" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="notifications" />
         </Stack.Protected>
         {/* Public: linked from sign-in and from the App Store listing. */}

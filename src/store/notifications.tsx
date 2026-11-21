@@ -30,7 +30,8 @@ export function notificationRoute(n: { kind?: string; data?: Record<string, stri
   if (d.match_id) return `/match/${d.match_id}`;
   if (d.ticket_id) return `/support/${d.ticket_id}`;
   if (n.kind === 'booking_new' || n.kind === 'booking_cancelled' || n.kind === 'pitch_approved') return '/owner';
-  if (n.kind === 'pitch_rejected') return '/listings';
+  if (n.kind === 'pitch_rejected' || n.kind === 'academy_rejected') return '/listings';
+  if (n.kind === 'academy_approved') return '/academy-admin';
   if (n.kind === 'booking_cancelled_by_staff') return '/bookings';
   if (n.kind === 'enrollment_new') return '/academy-admin';
   return null;

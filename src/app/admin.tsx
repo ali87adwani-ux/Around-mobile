@@ -491,11 +491,79 @@ function Tournaments() {
   );
 }
 
+/** Academies owners submitted, waiting for approval. */
+function PendingAcademies() {
+  const { t, l, errText } = useApp();
+  const { allAcademies, loadPendingAcademies, reviewAcademy } = useAcademies();
+  const toast = useToast();
+  const [rows, setRows] = useState<{ academyId: string; ownerName: string; phone: string; note: string }[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const load = useCallback(() => {
+    loadPendingAcademies().then(setRows);
+  }, [loadPendingAcademies]);
+  useEffect(load, [load]);
+  if (!rows.length) return null;
+  return (
+    <View style={{ gap: space.sm }}>
+      <Row gap={8}>
+        <Ionicons name="time-outline" size={18} color={colors.warning} />
+        <Txt v="h3">{t('pendingListings', { n: rows.length })}</Txt>
+      </Row>
+      {rows.map((r) => {
+        const a = allAcademies.find((x) => x.id === r.academyId);
+        if (!a) return null;
+        return (
+          <Card key={r.academyId} style={{ gap: space.sm, borderWidth: 1, borderColor: colors.warning }}>
+            <Txt v="h3">{l(a.name)}</Txt>
+            <Txt v="caption" color={colors.textMuted}>
+              {l(a.area)} · {t(`gov_${a.governorate}` as StringKey)}
+            </Txt>
+            {!!l(a.about) && <Txt v="caption" color={colors.text}>{l(a.about)}</Txt>}
+            <Row gap={6}>
+              <Ionicons name="person-outline" size={15} color={colors.textMuted} />
+              <Txt v="caption" color={colors.textMuted} style={{ flex: 1 }}>
+                {r.ownerName || '—'}
+                {r.phone ? ` · ${r.phone}` : ''}
+              </Txt>
+              {!!r.phone && <IconButton icon="logo-whatsapp" label="WhatsApp" size={34} color={colors.success} bg={colors.successSoft} onPress={() => Linking.openURL(`https://wa.me/${r.phone.replace(/\D/g, '').replace(/^(\d{8})$/, '965$1')}`)} />}
+            </Row>
+            {!!r.note && <Txt v="caption" color={colors.text}>“{r.note}”</Txt>}
+            <Row gap={space.sm}>
+              {([true, false] as const).map((approve) => (
+                <Button
+                  key={String(approve)}
+                  title={approve ? t('approve') : t('reject')}
+                  small
+                  kind={approve ? 'primary' : 'danger'}
+                  icon={approve ? 'checkmark' : 'close'}
+                  style={{ flex: 1 }}
+                  loading={approve && busy === r.academyId}
+                  disabled={!approve && busy === r.academyId}
+                  onPress={async () => {
+                    setBusy(r.academyId);
+                    const res = await reviewAcademy(r.academyId, approve);
+                    setBusy(null);
+                    toast(res.ok ? (approve ? t('academyApproved') : t('listingRejected')) : errText(res.error), res.ok ? 'success' : 'error');
+                    load();
+                  }}
+                />
+              ))}
+            </Row>
+          </Card>
+        );
+      })}
+      <Divider />
+    </View>
+  );
+}
+
 function AcademiesPanel() {
   const { t, l, money } = useApp();
-  const { academies, programs } = useAcademies();
+  const { allAcademies, programs } = useAcademies();
+  const academies = allAcademies.filter((a) => (a.status ?? 'approved') === 'approved');
   return (
     <>
+      <PendingAcademies />
       {academies.map((a) => {
         const ps = programs.filter((p) => p.academyId === a.id);
         const students = ps.reduce((s, p) => s + p.enrolled, 0);

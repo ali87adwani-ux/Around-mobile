@@ -152,7 +152,7 @@ export const terms: Record<'ar' | 'en', Doc> = {
         h: 'الحجوزات والإلغاء',
         p: [
           'الحجز مؤكد فور ظهوره في "حجوزاتي". الأسعار المعروضة بالدينار الكويتي، وقد تشمل خصم أوقات الهدوء.',
-          'الدفع حالياً في الملعب مباشرة. عند تفعيل الدفع داخل التطبيق (كي نت وApple Pay) سيتم توضيح شروط الاسترجاع قبل الدفع.',
+          'يتم الدفع في الملعب مباشرة لصاحب الملعب، ولا يتم أي دفع أو تحصيل مالي من خلال التطبيق. أي استرجاع للمبالغ يتم بين اللاعب وصاحب الملعب.',
           'الإلغاء مجاني حتى 6 ساعات قبل موعد الحجز. بعد ذلك لا يمكن الإلغاء من التطبيق.',
           'عدم الحضور المتكرر يؤثر على تقييم الالتزام في حسابك، وقد يؤدي لإيقاف الحساب.',
           'يحق لصاحب الملعب أو إدارة التطبيق إلغاء الحجز لظروف قاهرة، وسيصلك إشعار بذلك.',
@@ -204,7 +204,7 @@ export const terms: Record<'ar' | 'en', Doc> = {
         h: 'Bookings and cancellation',
         p: [
           'A booking is confirmed once it appears in My bookings. Prices are in Kuwaiti dinars and may include an off-peak discount.',
-          'For now you pay at the pitch. When in-app payment (KNET and Apple Pay) is enabled, refund terms will be shown before you pay.',
+          'You pay at the pitch, directly to the pitch owner; no payment is taken through the app. Any refund is between the player and the pitch owner.',
           'Cancellation is free up to 6 hours before kick-off; after that it cannot be cancelled in the app.',
           'Repeated no-shows lower your reliability score and may lead to suspension.',
           'The pitch owner or Al Dawri may cancel a booking in exceptional circumstances; you will be notified.',
