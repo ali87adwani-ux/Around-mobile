@@ -2,7 +2,7 @@
  * Supabase data access. Maps database rows to the app's types.
  * Only used when the backend is configured (see src/lib/supabase.ts).
  */
-import type { Booking, Match, Pitch, Player, TeamRow, Tournament } from '@/data/types';
+import type { AppNotification, Booking, Match, PendingPitch, Pitch, PitchSubmissionInput, Player, TeamRow, Tournament } from '@/data/types';
 import { kwDateFromOffset, kwOffset, kwParts, kwTimestamp } from '@/i18n/format';
 import { supabase } from './supabase';
 
@@ -54,6 +54,7 @@ export async function fetchPitches(): Promise<Pitch[]> {
     lat: r.lat ?? undefined,
     lng: r.lng ?? undefined,
     active: r.active,
+    status: r.status ?? 'approved',
     governorate: r.governorate,
   }));
 }
@@ -316,4 +317,81 @@ export async function fetchReviews(pitchId: string) {
 export async function reviewPitch(pitchId: string, rating: number, comment: string) {
   const { error } = await db().rpc('review_pitch', { p_pitch: pitchId, p_rating: rating, p_comment: comment });
   if (error) throw error;
+}
+
+/* ---------- pitch listings by owners ---------- */
+
+export async function submitPitch(p: PitchSubmissionInput) {
+  const { error } = await db().rpc('submit_pitch', {
+    p_name: p.name, p_area: p.area, p_governorate: p.governorate, p_address: p.address, p_price: p.price, p_sizes: p.sizes,
+    p_surface: p.surface, p_indoor: p.indoor, p_amenities: p.amenities, p_open_from: p.openFrom, p_open_to: p.openTo,
+    p_phone: p.phone, p_note: p.note, p_lat: p.lat ?? null, p_lng: p.lng ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function withdrawPitch(pitchId: string) {
+  const { error } = await db().rpc('withdraw_pitch', { p_pitch: pitchId });
+  if (error) throw error;
+}
+
+export async function adminPitchSubmissions(): Promise<PendingPitch[]> {
+  const { data, error } = await db().rpc('admin_pitch_submissions');
+  if (error) throw error;
+  return (data ?? []).map((r: { pitch_id: string; owner_id: string; owner_name: string; contact_phone: string; note: string; created_at: string }) => ({
+    pitchId: r.pitch_id, ownerId: r.owner_id, ownerName: r.owner_name, phone: r.contact_phone, note: r.note, at: new Date(r.created_at).getTime(),
+  }));
+}
+
+export async function adminReviewPitch(pitchId: string, approve: boolean, reason = '') {
+  const { error } = await db().rpc('admin_review_pitch', { p_pitch: pitchId, p_approve: approve, p_reason: reason });
+  if (error) throw error;
+}
+
+/* ---------- account ---------- */
+
+export async function deleteMyAccount() {
+  const { error } = await db().rpc('delete_my_account');
+  if (error) throw error;
+}
+
+/* ---------- notifications ---------- */
+
+type NotificationRow = { id: string; kind: string; title_ar: string; title_en: string; body_ar: string; body_en: string; data: Record<string, string> | null; read_at: string | null; created_at: string };
+
+export function mapNotification(r: NotificationRow): AppNotification {
+  return {
+    id: r.id,
+    kind: r.kind,
+    title: { ar: r.title_ar, en: r.title_en },
+    body: { ar: r.body_ar, en: r.body_en },
+    data: r.data ?? {},
+    read: !!r.read_at,
+    at: new Date(r.created_at).getTime(),
+  };
+}
+
+export async function fetchNotifications(): Promise<AppNotification[]> {
+  const { data, error } = await db().from('notifications').select('*').order('created_at', { ascending: false }).limit(100);
+  if (error) throw error;
+  return (data ?? []).map(mapNotification);
+}
+
+export async function markNotificationsRead(ids?: string[]) {
+  const { error } = await db().rpc('mark_notifications_read', { p_ids: ids ?? null });
+  if (error) throw error;
+}
+
+export async function deleteNotification(id: string) {
+  const { error } = await db().from('notifications').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function registerPushToken(token: string, platform: string, lang: string) {
+  const { error } = await db().rpc('register_push_token', { p_token: token, p_platform: platform, p_lang: lang });
+  if (error) throw error;
+}
+
+export async function unregisterPushToken(token: string) {
+  await db().rpc('unregister_push_token', { p_token: token });
 }

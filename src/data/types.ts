@@ -21,6 +21,8 @@ export interface Pitch {
   id: string;
   ownerId?: string;
   active?: boolean;
+  /** Listings added by owners stay 'pending' until an admin approves them. */
+  status?: 'pending' | 'approved' | 'rejected';
   governorate: Governorate;
   lat?: number;
   lng?: number;
@@ -122,4 +124,41 @@ export interface Profile {
   level: Level;
   phone: string;
   avatarUrl?: string;
+}
+
+export interface AppNotification {
+  id: string;
+  kind: string;
+  title: L10n;
+  body: L10n;
+  data: Record<string, string>;
+  read: boolean;
+  at: number;
+}
+
+export interface PitchSubmissionInput {
+  name: string;
+  area: string;
+  governorate: Governorate;
+  address: string;
+  price: number;
+  sizes: PitchSize[];
+  surface: 'artificial' | 'natural';
+  indoor: boolean;
+  amenities: Amenity[];
+  openFrom: number;
+  openTo: number;
+  phone: string;
+  note: string;
+  lat?: number;
+  lng?: number;
+}
+
+export interface PendingPitch {
+  pitchId: string;
+  ownerId: string;
+  ownerName: string;
+  phone: string;
+  note: string;
+  at: number;
 }

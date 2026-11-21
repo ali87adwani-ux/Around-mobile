@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useToast } from '@/components/overlays';
@@ -59,7 +60,7 @@ export default function OwnerDashboard() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <ScreenHeader title={t('ownerDashboard')} />
-        <EmptyState icon="business-outline" title={t('ownerNoPitches')} body={t('ownerNoPitchesSub')} />
+        <EmptyState icon="business-outline" title={t('ownerNoPitches')} body={t('ownerNoPitchesSub')} action={t('listPitch')} onAction={() => router.push('/listings')} />
       </View>
     );
   }

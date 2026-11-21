@@ -10,14 +10,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { getLocales } from 'expo-localization';
 import * as WebBrowser from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import { Platform, useColorScheme } from 'react-native';
 import { applyTheme, type ThemeName } from '@/theme';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { ME_ID, seedReviews, matches as seedMatches, pitches as seedPitches, players as seedPlayers, tournaments as seedTournaments } from '@/data/seed';
-import type { Booking, Lang, Match, Pitch, Player, Profile, Review, Tournament } from '@/data/types';
+import type { Booking, Lang, Match, Pitch, PitchSubmissionInput, Player, Profile, Review, Tournament } from '@/data/types';
 import { strings, type StringKey } from '@/i18n/strings';
 import { dateFromOffset, formatHour, formatMoney, toISODate } from '@/i18n/format';
 import { cancelReminder, scheduleReminder } from '@/lib/reminders';
+import { registerForPush, unregisterPush } from '@/lib/push';
 import * as api from '@/lib/api';
 import type { OwnerSlot } from '@/lib/api';
 import { backendEnabled, supabase } from '@/lib/supabase';
@@ -54,6 +57,8 @@ interface PersistedState {
   demoTournamentStatus: Record<string, Tournament['status']>;
   demoTournaments: Tournament[];
   myReviews: Review[];
+  /** Demo: pitches the user listed as an owner. */
+  demoListings: Pitch[];
   themeMode: 'light' | 'dark' | 'system';
   reminders: boolean;
   reminderIds: Record<string, string>;
@@ -90,6 +95,7 @@ const initial = (): PersistedState => ({
   demoTournamentStatus: {},
   demoTournaments: [],
   myReviews: [],
+  demoListings: [],
   themeMode: 'system',
   reminders: true,
   reminderIds: {},
@@ -120,7 +126,11 @@ type Action =
   | { type: 'setTheme'; mode: 'light' | 'dark' | 'system' }
   | { type: 'setReminders'; on: boolean }
   | { type: 'setReminderId'; key: string; id?: string }
+  | { type: 'addDemoListing'; pitch: Pitch }
+  | { type: 'removeDemoListing'; id: string }
+  | { type: 'reviewDemoListing'; id: string; approve: boolean }
   | { type: 'signedOut' }
+  | { type: 'deleted' }
   | { type: 'reset' };
 
 function reducer(state: State, a: Action): State {
@@ -184,6 +194,18 @@ function reducer(state: State, a: Action): State {
     }
     case 'addReview':
       return { ...state, myReviews: [a.review, ...state.myReviews.filter((r) => r.pitchId !== a.review.pitchId)] };
+    case 'addDemoListing':
+      return { ...state, demoListings: [a.pitch, ...state.demoListings] };
+    case 'removeDemoListing':
+      return { ...state, demoListings: state.demoListings.filter((p) => p.id !== a.id) };
+    case 'reviewDemoListing':
+      return {
+        ...state,
+        demoOwner: a.approve ? true : state.demoOwner,
+        demoListings: state.demoListings.map((p) => (p.id === a.id ? { ...p, status: a.approve ? 'approved' : 'rejected', active: a.approve } : p)),
+      };
+    case 'deleted':
+      return { ...initial(), lang: state.lang, hydrated: true };
     case 'signedOut':
       return { ...state, onboarded: false, profile: initial().profile };
     case 'reset':
@@ -249,11 +271,19 @@ interface Ctx {
   removeAvatar: () => Promise<Result>;
   role: 'player' | 'owner' | 'academy' | 'admin';
   // auth (live mode)
-  sendCode: (phone: string) => Promise<Result>;
-  verifyCode: (phone: string, code: string) => Promise<Result>;
   signInGuest: () => Promise<Result>;
   signInWithGoogle: () => Promise<Result>;
+  signInWithApple: () => Promise<Result>;
   signOut: () => Promise<void>;
+  /** Permanently deletes the account and its data (App Store requirement). */
+  deleteAccount: () => Promise<Result>;
+  // pitch listings
+  /** Every pitch the user listed, including ones waiting for review. */
+  myListings: Pitch[];
+  submitPitch: (p: PitchSubmissionInput) => Promise<Result>;
+  withdrawPitch: (pitchId: string) => Promise<Result>;
+  /** Demo only: approve / reject a listing from the admin dashboard. */
+  reviewDemoListing: (pitchId: string, approve: boolean) => void;
   // pitch owners
   isOwner: boolean;
   ownerPitches: Pitch[];
@@ -359,6 +389,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, [loadUser]);
 
+  // Link this phone to the account for push notifications (again when the language changes).
+  useEffect(() => {
+    if (live && userId && state.hydrated) registerForPush(state.lang);
+  }, [live, userId, state.lang, state.hydrated]);
+
   /* ---------- theme ---------- */
   const systemScheme = useColorScheme();
   const themeName: ThemeName = state.themeMode === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : state.themeMode;
@@ -392,8 +427,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   /** Every pitch including deactivated ones (admin). */
   const allPitches = useMemo(() => {
     if (live) return remote.pitches;
-    return seedPitches.map((p) => ({ ...p, ...state.demoPitchEdits[p.id], active: !state.demoPitchInactive.includes(p.id), pricePerHour: state.demoPrices[p.id] ?? p.pricePerHour }));
-  }, [live, remote.pitches, state.demoPrices, state.demoPitchInactive, state.demoPitchEdits]);
+    return [...state.demoListings, ...seedPitches].map((p) => ({
+      ...p,
+      ...state.demoPitchEdits[p.id],
+      active: p.status && p.status !== 'approved' ? false : !state.demoPitchInactive.includes(p.id),
+      pricePerHour: state.demoPrices[p.id] ?? p.pricePerHour,
+    }));
+  }, [live, remote.pitches, state.demoPrices, state.demoPitchInactive, state.demoPitchEdits, state.demoListings]);
   const pitches = useMemo(() => allPitches.filter((p) => p.active !== false), [allPitches]);
 
   const allMatches = useMemo(() => (live ? remote.matches : [...state.createdMatches, ...seedMatches]), [live, remote.matches, state.createdMatches]);
@@ -431,8 +471,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [live, remote.matches, meId, state.profile, state.joinedMatchIds.length, pitches]);
 
-  const isOwner = live ? role === 'owner' || role === 'admin' : state.demoOwner;
-  const ownerPitches = useMemo(() => (live ? pitches.filter((p) => p.ownerId === meId) : state.demoOwner ? pitches.slice(0, 1) : []), [live, pitches, meId, state.demoOwner]);
+  const myListings = useMemo(() => (live ? allPitches.filter((p) => p.ownerId === meId) : state.demoListings.map((l) => allPitches.find((p) => p.id === l.id) ?? l)), [live, allPitches, meId, state.demoListings]);
+  const ownerPitches = useMemo(() => {
+    if (live) return pitches.filter((p) => p.ownerId === meId);
+    const mine = pitches.filter((p) => p.ownerId === ME_ID);
+    return mine.length ? mine : state.demoOwner ? pitches.slice(0, 1) : [];
+  }, [live, pitches, meId, state.demoOwner]);
+  const isOwner = live ? role === 'owner' || role === 'admin' || ownerPitches.length > 0 : state.demoOwner || ownerPitches.length > 0;
 
   /* ---------- availability ---------- */
   const demoBusy = useCallback(
@@ -491,6 +536,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } catch (e) {
         return fail(e);
       }
+    };
+
+    /** Google / Apple through Supabase OAuth (web redirect, or an auth browser session on the phone). */
+    const oauth = async (provider: 'google' | 'apple'): Promise<Result> => {
+      if (!supabase) return ok();
+      if (Platform.OS === 'web') {
+        const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin } });
+        if (error) throw error;
+        return ok();
+      }
+      const redirectTo = Linking.createURL('auth/callback');
+      const { data, error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo, skipBrowserRedirect: true } });
+      if (error || !data?.url) throw error ?? new Error('oauth_failed');
+      const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (res.type !== 'success') return { ok: false, error: 'cancelled' };
+      const code = new URL(res.url).searchParams.get('code');
+      if (!code) throw new Error('oauth_failed');
+      const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
+      if (exErr) throw exErr;
+      return ok();
     };
 
     return {
@@ -628,40 +693,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return ok();
         }),
       role: live ? role : state.demoAdmin ? 'admin' : state.demoOwner ? 'owner' : state.demoAcademy ? 'academy' : 'player',
-      sendCode: (phone) =>
+      signInWithGoogle: () => guard(() => oauth('google')),
+      signInWithApple: () =>
         guard(async () => {
           if (!supabase) return ok();
-          const { error } = await supabase.auth.signInWithOtp({ phone });
-          if (error) throw error;
-          return ok();
-        }),
-      verifyCode: (phone, code) =>
-        guard(async () => {
-          if (!supabase) return ok();
-          const { error } = await supabase.auth.verifyOtp({ phone, token: code, type: 'sms' });
-          if (error) throw error;
-          return ok();
-        }),
-      signInWithGoogle: () =>
-        guard(async () => {
-          if (!supabase) return ok();
-          // Web: Supabase redirects the page and picks the session up from the URL on return.
-          if (Platform.OS === 'web') {
-            const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+          // iPhone: the native Apple sheet, then hand Apple's identity token to Supabase.
+          if (Platform.OS === 'ios') {
+            const rawNonce = Crypto.randomUUID();
+            const hashed = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce);
+            let cred: AppleAuthentication.AppleAuthenticationCredential;
+            try {
+              cred = await AppleAuthentication.signInAsync({
+                requestedScopes: [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL],
+                nonce: hashed,
+              });
+            } catch (e) {
+              if ((e as { code?: string }).code === 'ERR_REQUEST_CANCELED') return { ok: false, error: 'cancelled' };
+              throw e;
+            }
+            if (!cred.identityToken) throw new Error('oauth_failed');
+            const { error } = await supabase.auth.signInWithIdToken({ provider: 'apple', token: cred.identityToken, nonce: rawNonce });
             if (error) throw error;
+            // Apple shares the name only on the first sign-in: keep it for the player card.
+            const full = [cred.fullName?.givenName, cred.fullName?.familyName].filter(Boolean).join(' ');
+            if (full) {
+              dispatch({ type: 'updateProfile', profile: { name: full } });
+              await supabase.auth.updateUser({ data: { full_name: full } }).catch(() => {});
+            }
             return ok();
           }
-          // Native: open Google in an auth browser session and exchange the returned code.
-          const redirectTo = Linking.createURL('auth/callback');
-          const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo, skipBrowserRedirect: true } });
-          if (error || !data?.url) throw error ?? new Error('oauth_failed');
-          const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-          if (res.type !== 'success') return { ok: false, error: 'cancelled' };
-          const code = new URL(res.url).searchParams.get('code');
-          if (!code) throw new Error('oauth_failed');
-          const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
-          if (exErr) throw exErr;
-          return ok();
+          // Web and Android: Apple's web sign-in.
+          return oauth('apple');
         }),
       signInGuest: () =>
         guard(async () => {
@@ -671,9 +733,53 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return ok();
         }),
       signOut: async () => {
+        await unregisterPush().catch(() => {});
         if (supabase) await supabase.auth.signOut();
         dispatch({ type: 'signedOut' });
       },
+      deleteAccount: () =>
+        guard(async () => {
+          if (live && supabase) {
+            if (userId && state.profile.avatarUrl) await api.removeAvatar(userId).catch(() => {});
+            await unregisterPush().catch(() => {});
+            await api.deleteMyAccount();
+            await supabase.auth.signOut().catch(() => {});
+          }
+          for (const id of Object.values(state.reminderIds)) cancelReminder(id);
+          dispatch({ type: 'deleted' });
+          return ok();
+        }),
+      myListings,
+      reviewDemoListing: (pitchId, approve) => dispatch({ type: 'reviewDemoListing', id: pitchId, approve }),
+      submitPitch: (p) =>
+        guard(async () => {
+          if (live) {
+            await api.submitPitch(p);
+            await refresh();
+            return ok();
+          }
+          const id = `lst${Date.now()}`;
+          dispatch({
+            type: 'addDemoListing',
+            pitch: {
+              id, ownerId: ME_ID, status: 'pending', active: false, governorate: p.governorate,
+              name: { ar: p.name, en: p.name }, area: { ar: p.area, en: p.area }, address: { ar: p.address, en: p.address },
+              pricePerHour: p.price, sizes: p.sizes, surface: p.surface, indoor: p.indoor, rating: 0, reviews: 0, distanceKm: 0,
+              amenities: p.amenities, openFrom: p.openFrom, openTo: p.openTo, tint: ['#0B2E6F', '#1E56B3'], lat: p.lat, lng: p.lng,
+            },
+          });
+          return ok(id);
+        }),
+      withdrawPitch: (pitchId) =>
+        guard(async () => {
+          if (live) {
+            await api.withdrawPitch(pitchId);
+            await refresh();
+            return ok();
+          }
+          dispatch({ type: 'removeDemoListing', id: pitchId });
+          return ok();
+        }),
 
       isOwner,
       ownerPitches,
@@ -770,7 +876,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return ok();
         }),
     };
-  }, [state, themeName, live, reviewCache, userId, role, authChecked, loading, lang, isRTL, t, l, money, errText, meId, me, pitches, allPitches, players, tournaments, allMatches, myBookings, isJoined, bookedHours, loadBusy, refresh, isOwner, ownerPitches]);
+  }, [state, themeName, live, reviewCache, userId, role, authChecked, loading, lang, isRTL, t, l, money, errText, meId, me, pitches, allPitches, players, tournaments, allMatches, myBookings, isJoined, bookedHours, loadBusy, refresh, isOwner, ownerPitches, myListings]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

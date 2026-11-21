@@ -13,12 +13,14 @@ import { Avatar, Card, HScroll, EmptyState, IconButton, PitchArt, Row, SectionHe
 import { dateFromOffset, formatDay, formatHour, fromISODate, offsetOf } from '@/i18n/format';
 import type { StringKey } from '@/i18n/strings';
 import { useApp } from '@/store/AppStore';
+import { useNotifications } from '@/store/notifications';
 import { colors, fonts, radius, space } from '@/theme';
 
 type Upcoming = { key: string; kind: 'booking' | 'match'; when: number; title: string; sub: string; onPress: () => void };
 
 export default function Home() {
   const app = useApp();
+  const { unread } = useNotifications();
   const { t, l, lang, state, me, allMatches, pitches, tournaments, getPitch, isJoined, myBookings } = app;
   const insets = useSafeAreaInsets();
   const d = useDir();
@@ -93,7 +95,7 @@ export default function Home() {
           </Row>
           <Row gap={8}>
             <IconButton icon="search" label="search" color={colors.white} bg="rgba(255,255,255,0.12)" onPress={() => router.push('/pitches')} />
-            <IconButton icon="notifications-outline" label="notifications" color={colors.white} bg="rgba(255,255,255,0.12)" badge={upcoming.length > 0} onPress={() => router.push('/bookings')} />
+            <IconButton icon="notifications-outline" label="notifications" color={colors.white} bg="rgba(255,255,255,0.12)" badge={unread > 0} onPress={() => router.push('/notifications')} />
           </Row>
         </Row>
 

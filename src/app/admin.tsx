@@ -1,13 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Linking } from 'react-native';
 import { ScrollView, TextInput, View } from 'react-native';
 import { Stepper } from '@/components/academy';
 import { statusBadge } from '@/components/cards';
 import { Sheet, useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Avatar, Badge, Button, Card, Chip, Divider, EmptyState, HScroll, IconButton, Row, Tap, Txt, useDir, webNoOutline, type IconName } from '@/components/ui';
-import type { Tournament } from '@/data/types';
+import type { PendingPitch, Tournament } from '@/data/types';
+import * as api from '@/lib/api';
+import { ME_ID } from '@/data/seed';
 import { formatDay, formatHour, fromISODate } from '@/i18n/format';
 import type { StringKey } from '@/i18n/strings';
 import { useAcademies } from '@/store/academies';
@@ -184,14 +187,102 @@ function Users() {
   );
 }
 
+/** Pitches owners submitted, waiting for approval. */
+function PendingPitches() {
+  const { t, l, lang, money, allPitches, mode, refresh, reviewDemoListing, errText, state } = useApp();
+  const toast = useToast();
+  const [rows, setRows] = useState<PendingPitch[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    if (mode === 'live') {
+      try {
+        setRows(await api.adminPitchSubmissions());
+      } catch {
+        setRows([]);
+      }
+    } else {
+      setRows(allPitches.filter((p) => p.status === 'pending').map((p) => ({ pitchId: p.id, ownerId: ME_ID, ownerName: state.profile.name, phone: '', note: '', at: Date.now() })));
+    }
+  }, [mode, allPitches, state.profile.name]);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const decide = async (id: string, approve: boolean) => {
+    setBusy(id);
+    try {
+      if (mode === 'live') {
+        await api.adminReviewPitch(id, approve);
+        await refresh();
+      } else reviewDemoListing(id, approve);
+      toast(approve ? t('listingApproved') : t('listingRejected'), approve ? 'success' : 'info');
+    } catch (e) {
+      toast(errText(api.errorCode(e)), 'error');
+    }
+    setBusy(null);
+    load();
+  };
+
+  if (!rows.length) return null;
+  return (
+    <View style={{ gap: space.sm }}>
+      <Row gap={8}>
+        <Ionicons name="time-outline" size={18} color={colors.warning} />
+        <Txt v="h3">{t('pendingListings', { n: rows.length })}</Txt>
+      </Row>
+      {rows.map((r) => {
+        const p = allPitches.find((x) => x.id === r.pitchId);
+        if (!p) return null;
+        return (
+          <Card key={r.pitchId} style={{ gap: space.sm, borderWidth: 1, borderColor: colors.warning }}>
+            <Txt v="h3">{l(p.name)}</Txt>
+            <Txt v="caption" color={colors.textMuted}>
+              {l(p.area)} · {t(`gov_${p.governorate}` as StringKey)} · {money(p.pricePerHour)}
+              {t('perHour')} · {p.sizes.map((n) => t('aSide', { n })).join('، ')}
+            </Txt>
+            <Txt v="caption" color={colors.textMuted}>
+              {t('openHours', { from: formatHour(p.openFrom, lang), to: formatHour(p.openTo % 24, lang) })} · {p.amenities.map((a) => t(`amenity_${a}` as StringKey)).join('، ')}
+            </Txt>
+            {!!l(p.address) && (
+              <Txt v="caption" color={colors.textMuted} selectable>
+                {l(p.address)}
+              </Txt>
+            )}
+            <Row gap={6}>
+              <Ionicons name="person-outline" size={15} color={colors.textMuted} />
+              <Txt v="caption" color={colors.textMuted} style={{ flex: 1 }}>
+                {r.ownerName || '—'}
+                {r.phone ? ` · ${r.phone}` : ''}
+              </Txt>
+              {!!r.phone && <IconButton icon="logo-whatsapp" label="WhatsApp" size={34} color={colors.success} bg={colors.successSoft} onPress={() => Linking.openURL(`https://wa.me/${r.phone.replace(/\D/g, '').replace(/^(\d{8})$/, '965$1')}`)} />}
+            </Row>
+            {!!r.note && (
+              <Txt v="caption" color={colors.text}>
+                “{r.note}”
+              </Txt>
+            )}
+            <Row gap={space.sm}>
+              <Button title={t('approve')} small icon="checkmark" style={{ flex: 1 }} loading={busy === r.pitchId} onPress={() => decide(r.pitchId, true)} />
+              <Button title={t('reject')} small kind="danger" icon="close" style={{ flex: 1 }} disabled={busy === r.pitchId} onPress={() => decide(r.pitchId, false)} />
+            </Row>
+          </Card>
+        );
+      })}
+      <Divider />
+    </View>
+  );
+}
+
 function Pitches() {
-  const { t, l, money, allPitches, errText } = useApp();
+  const { t, l, money, allPitches: everyPitch, errText } = useApp();
+  const allPitches = everyPitch.filter((p) => (p.status ?? 'approved') === 'approved');
   const { updatePitch, users } = useAdmin();
   const toast = useToast();
   const [assign, setAssign] = useState<string | null>(null);
   const ownerName = (id?: string) => users.find((u) => u.id === id)?.name;
   return (
     <>
+      <PendingPitches />
       {allPitches.map((p) => {
         const active = p.active !== false;
         return (

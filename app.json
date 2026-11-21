@@ -11,8 +11,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.aldawri.app",
       "infoPlist": {
-        "CFBundleAllowMixedLocalizations": true
-      }
+        "CFBundleAllowMixedLocalizations": true,
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "com.aldawri.app",
@@ -53,7 +55,8 @@
         {
           "color": "#0B2E6F"
         }
-      ]
+      ],
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": false

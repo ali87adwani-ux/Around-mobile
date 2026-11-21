@@ -14,11 +14,15 @@ import { useApp } from '@/store/AppStore';
 import { useSupport } from '@/store/support';
 import { useAcademies } from '@/store/academies';
 import { useEngagement } from '@/store/engagement';
+import { useNotifications } from '@/store/notifications';
 import { remindersSupported } from '@/lib/reminders';
 import { colors, radius, space } from '@/theme';
 
 export default function Profile() {
-  const { t, me, state, dispatch, lang, pitches, myBookings, isOwner, mode, signOut, saveProfile, errText, allMatches, isJoined, setAvatar, removeAvatar, role } = useApp();
+  const { t, me, state, dispatch, lang, pitches, myBookings, isOwner, mode, signOut, saveProfile, errText, allMatches, isJoined, setAvatar, removeAvatar, role, deleteAccount, myListings } = useApp();
+  const { unread } = useNotifications();
+  const [delAccount, setDelAccount] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const d = useDir();
@@ -124,11 +128,20 @@ export default function Profile() {
           <Divider />
           <MenuItem icon="school-outline" label={t('academies')} onPress={() => router.push('/academies')} />
           <Divider />
+          <MenuItem icon="notifications-outline" label={t('notifications')} value={unread ? String(unread) : undefined} onPress={() => router.push('/notifications')} />
+          <Divider />
           <MenuItem icon="headset-outline" label={t('support')} value={openTickets ? String(openTickets) : undefined} onPress={() => router.push('/support')} />
+          <Divider />
+          <MenuItem
+            icon="business-outline"
+            label={myListings.length ? t('myPitches') : t('listPitch')}
+            value={myListings.length ? String(myListings.length) : undefined}
+            onPress={() => router.push(myListings.length ? '/listings' : '/listing/new')}
+          />
           {isOwner && (
             <>
               <Divider />
-              <MenuItem icon="business-outline" label={t('ownerDashboard')} onPress={() => router.push('/owner')} />
+              <MenuItem icon="speedometer-outline" label={t('ownerDashboard')} onPress={() => router.push('/owner')} />
             </>
           )}
           {ownedAcademies.length > 0 && (
@@ -204,6 +217,16 @@ export default function Profile() {
             </Row>
           </Tap>
         )}
+      </View>
+
+      <View style={{ paddingHorizontal: space.lg }}>
+        <Card style={{ paddingVertical: space.xs }}>
+          <MenuItem icon="shield-outline" label={t('privacy')} onPress={() => router.push('/legal/privacy')} />
+          <Divider />
+          <MenuItem icon="document-text-outline" label={t('terms')} onPress={() => router.push('/legal/terms')} />
+          <Divider />
+          <MenuItem icon="trash-outline" label={t('deleteAccount')} color={colors.danger} onPress={() => setDelAccount(true)} />
+        </Card>
       </View>
 
       <View style={{ gap: space.md }}>
@@ -292,6 +315,28 @@ export default function Profile() {
           <ActivityIndicator color={colors.white} size="large" />
         </View>
       )}
+
+      <Sheet visible={delAccount} onClose={() => !deleting && setDelAccount(false)} title={t('deleteAccount')}>
+        <View style={{ gap: space.md }}>
+          <Txt v="body" color={colors.textMuted}>
+            {t('deleteAccountBody')}
+          </Txt>
+          <Button
+            title={t('deleteAccountConfirm')}
+            icon="trash"
+            kind="danger"
+            loading={deleting}
+            onPress={async () => {
+              setDeleting(true);
+              const r = await deleteAccount();
+              setDeleting(false);
+              setDelAccount(false);
+              toast(r.ok ? t('accountDeleted') : errText(r.error), r.ok ? 'info' : 'error');
+            }}
+          />
+          <Button title={t('cancel')} kind="ghost" disabled={deleting} onPress={() => setDelAccount(false)} />
+        </View>
+      </Sheet>
 
       <ConfirmSheet
         visible={reset}

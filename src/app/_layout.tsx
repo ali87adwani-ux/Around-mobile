@@ -10,6 +10,7 @@ import { SupportProvider } from '@/store/support';
 import { AcademiesProvider } from '@/store/academies';
 import { AdminProvider } from '@/store/admin';
 import { EngagementProvider } from '@/store/engagement';
+import { NotificationsProvider } from '@/store/notifications';
 import { colors } from '@/theme';
 
 // Layout direction is handled by the app itself (per selected language),
@@ -58,7 +59,13 @@ function RootNavigator() {
           <Stack.Screen name="admin" />
           <Stack.Screen name="rewards" />
           <Stack.Screen name="teams" />
+          <Stack.Screen name="listings" />
+          <Stack.Screen name="listing/new" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="notifications" />
         </Stack.Protected>
+        {/* Public: linked from sign-in and from the App Store listing. */}
+        <Stack.Screen name="legal/privacy" />
+        <Stack.Screen name="legal/terms" />
       </Stack>
     </>
   );
@@ -72,9 +79,11 @@ export default function RootLayout() {
           <AcademiesProvider>
             <AdminProvider>
               <EngagementProvider>
-                <ToastProvider>
-                  <RootNavigator />
-                </ToastProvider>
+                <NotificationsProvider>
+                  <ToastProvider>
+                    <RootNavigator />
+                  </ToastProvider>
+                </NotificationsProvider>
               </EngagementProvider>
             </AdminProvider>
           </AcademiesProvider>

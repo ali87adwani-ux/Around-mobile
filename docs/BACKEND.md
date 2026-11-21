@@ -16,35 +16,36 @@
    - `…_seed.sql`: الملاعب والبطولات المبدئية بالكويت.
 3. انسخ `.env.example` إلى `.env` وحط رابط المشروع والمفتاح (Project Settings → API → Publishable key).
 
-## 2. تسجيل الدخول
+## 2. تسجيل الدخول (Apple و Google فقط)
 
 من **Authentication → Sign In / Providers**:
 
-- **رقم التلفون (SMS):** فعّل Phone واختار مزوّد رسائل (Twilio أو Vonage أو MessageBird) وحط بياناته. للتجربة بدون رسائل: أضف أرقام تجريبية مع كود ثابت في نفس الصفحة.
+- **Apple** (يحتاج حساب Apple Developer):
+  1. في developer.apple.com → Identifiers: فعّل *Sign in with Apple* على App ID `com.aldawri.app`.
+  2. في Supabase فعّل Apple، وحط في *Client IDs*: `com.aldawri.app` (هذا يكفي للآيفون).
+  3. للويب: أنشئ *Services ID* (مثلاً `com.aldawri.web`) ومفتاح Sign in with Apple (.p8)، وحطهم في Supabase، وأضف الرابط `https://<project-ref>.supabase.co/auth/v1/callback` في Return URLs.
 - **Google:**
   1. في Google Cloud Console أنشئ OAuth Client من نوع *Web application*.
   2. في *Authorized redirect URIs* حط: `https://<project-ref>.supabase.co/auth/v1/callback`
   3. انسخ Client ID و Client Secret إلى مزوّد Google في Supabase.
-  4. في **Authentication → URL Configuration → Redirect URLs** أضف: `aldawri://auth/callback` (للجوال) ورابط موقع الويب إن وجد.
-- **جرّب بدون رقم:** فعّل *Allow anonymous sign-ins* (اختياري، للتجربة فقط).
-
-> ملاحظة لمتجر Apple: إذا التطبيق فيه دخول بـ Google، Apple يطلب يكون فيه **Sign in with Apple** بعد. نضيفه قبل النشر.
+- **Authentication → URL Configuration → Redirect URLs** أضف: `aldawri://auth/callback` و `https://aldawri.vercel.app`.
+- **جرّب بدون حساب:** *Allow anonymous sign-ins* للتجربة فقط. قبل النشر: اقفله، وخلّ `ALLOW_GUEST = false` في `src/config/index.ts`، وشغّل `supabase/launch_cleanup.sql`.
 
 ## 3. أصحاب الملاعب
 
-صاحب الملعب يسجّل دخول عادي من التطبيق، بعدين من **SQL Editor**:
+صاحب الملعب يسجّل دخول ويضغط **حسابي ← أضف ملعبك** ويعبّي التفاصيل. الطلب يوصل للوحة المدير
+(**الملاعب ← ملاعب تنتظر الموافقة**) مع رقم التواصل وزر واتساب. أول ما يوافق المدير يصير الملعب ظاهر
+ويتحول الحساب لصاحب ملعب، ويوصله إشعار. بعدها تطلع له "لوحة صاحب الملعب".
 
-```sql
--- 1) خلّه صاحب ملعب
-update public.profiles set role = 'owner'
-where id = (select id from auth.users where phone = '96512345678');
+## 3.1 الإشعارات
 
--- 2) اربط ملعبه بحسابه
-update public.pitches set owner_id = (select id from auth.users where phone = '96512345678')
-where name_en = 'Elite Arena';
-```
+- كل إشعار ينحفظ في جدول `notifications` (صندوق الإشعارات داخل التطبيق، ويتحدث مباشرة)، وينرسل للجوال عبر Expo Push من قاعدة البيانات (`pg_net`).
+- الأحداث: لاعب انضم لمباراتك، المباراة اكتملت، مكان انفتح لك من قائمة الانتظار، انلغت مباراة، حجز جديد / إلغاء (لصاحب الملعب)، انلغى حجزك من الإدارة، رد الدعم الفني، قبول/رفض الملعب، تسجيل جديد بالأكاديمية، وإعلانات المدير لكل المستخدمين.
+- إشعارات الجوال تشتغل بنسخة التطبيق المبنية من EAS (لازم `extra.eas.projectId` في app.json، ينضاف تلقائياً مع أول `eas build`). على الويب يشتغل صندوق الإشعارات بس.
 
-بعدها تطلع له "لوحة صاحب الملعب" في صفحة حسابي: حجوزات كل يوم بأسماء اللاعبين، الدخل، نسبة الإشغال، قفل وفتح الساعات، وتعديل السعر.
+## 3.2 حذف الحساب
+
+من **حسابي ← حذف الحساب**: يحذف الصورة، يلغي الحجوزات والمباريات الجاية، ينزّل ملاعب الشخص، ويحذف المستخدم نهائياً (الدالة `delete_my_account`). هذا شرط من Apple.
 
 ## 4. الأمان باختصار
 
