@@ -4,6 +4,7 @@
  */
 import type { AppNotification, Booking, DuesRow, Fixture, Highlight, Match, MatchEvent, PendingPitch, Pitch, PitchSubmissionInput, Player, RosterPlayer, TeamRow, Tournament, TournamentAward, TournamentFormat, Trophy, PitchSize } from '@/data/types';
 import { kwDateFromOffset, kwOffset, kwParts, kwTimestamp } from '@/i18n/format';
+import { prepareImage } from './image';
 import { supabase } from './supabase';
 
 const db = () => {
@@ -299,22 +300,33 @@ export async function ownerUpdatePrice(pitchId: string, price: number) {
 /* ---------- profile photo ---------- */
 
 /** Uploads a local image to the avatars bucket and stores its public URL on the profile. */
+/** Storage path of the user's current photo, read from the URL saved on their profile. */
+async function currentAvatarPath(userId: string): Promise<string | null> {
+  const { data } = await db().from('profiles').select('avatar_url').eq('id', userId).maybeSingle();
+  const url = (data as { avatar_url?: string | null } | null)?.avatar_url;
+  const m = url?.match(/\/avatars\/([^?]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
 export async function uploadAvatar(userId: string, localUri: string): Promise<string> {
-  const res = await fetch(localUri);
+  const res = await fetch(await prepareImage(localUri, 640));
   const body = await res.arrayBuffer();
-  const type = res.headers.get('content-type') || 'image/jpeg';
-  const path = `${userId}/avatar.jpg`;
-  const { error } = await db().storage.from('avatars').upload(path, body, { contentType: type, upsert: true });
+  // A new file each time (insert only), then the old one is removed.
+  const path = `${userId}/avatar-${Date.now()}.jpg`;
+  const old = await currentAvatarPath(userId);
+  const { error } = await db().storage.from('avatars').upload(path, body, { contentType: 'image/jpeg', upsert: false });
   if (error) throw error;
   const { data } = db().storage.from('avatars').getPublicUrl(path);
-  const url = `${data.publicUrl}?v=${Date.now()}`; // bust caches after a change
+  const url = data.publicUrl;
   const { error: e2 } = await db().from('profiles').update({ avatar_url: url }).eq('id', userId);
   if (e2) throw e2;
+  if (old && old !== path) await db().storage.from('avatars').remove([old]).catch(() => {});
   return url;
 }
 
 export async function removeAvatar(userId: string) {
-  await db().storage.from('avatars').remove([`${userId}/avatar.jpg`]);
+  const old = await currentAvatarPath(userId);
+  if (old) await db().storage.from('avatars').remove([old]).catch(() => {});
   const { error } = await db().from('profiles').update({ avatar_url: null }).eq('id', userId);
   if (error) throw error;
 }
@@ -618,10 +630,10 @@ export const photoUrl = (path: string) => (path.startsWith('http') ? path : db()
 
 /** Uploads a listing photo under the owner's folder and returns its storage path. */
 export async function uploadListingPhoto(ownerId: string, localUri: string): Promise<string> {
-  const res = await fetch(localUri);
+  const res = await fetch(await prepareImage(localUri, 1600));
   const body = await res.arrayBuffer();
-  const type = res.headers.get('content-type') || 'image/jpeg';
-  const ext = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : 'jpg';
+  const type = 'image/jpeg';
+  const ext = 'jpg';
   const path = `${ownerId}/${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
   const { error } = await db().storage.from('listing-photos').upload(path, body, { contentType: type });
   if (error) throw error;
