@@ -5,7 +5,9 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useMemo } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AcademyCard } from '@/components/academy';
 import { MatchCard, PitchCard, statusBadge } from '@/components/cards';
+import { useAcademies } from '@/store/academies';
 import { Avatar, Card, HScroll, EmptyState, IconButton, PitchArt, Row, SectionHeader, Tap, Txt, useDir, type IconName } from '@/components/ui';
 import { dateFromOffset, formatDay, formatHour, fromISODate, offsetOf } from '@/i18n/format';
 import type { StringKey } from '@/i18n/strings';
@@ -19,6 +21,7 @@ export default function Home() {
   const { t, l, lang, state, me, allMatches, pitches, tournaments, getPitch, isJoined, myBookings } = app;
   const insets = useSafeAreaInsets();
   const d = useDir();
+  const { academies, programs: academyPrograms } = useAcademies();
   const focused = useIsFocused();
   const labels = { today: t('today'), tomorrow: t('tomorrow') };
 
@@ -223,6 +226,18 @@ export default function Home() {
         <HScroll>
           {topPitches.map((p) => (
             <PitchCard key={p.id} pitch={p} compact />
+          ))}
+        </HScroll>
+      </View>
+
+      {/* Academies */}
+      <View style={{ marginTop: space.lg }}>
+        <View style={{ paddingHorizontal: space.lg }}>
+          <SectionHeader title={t('academies')} action={t('seeAll')} onAction={() => router.push('/academies')} />
+        </View>
+        <HScroll>
+          {academies.map((a) => (
+            <AcademyCard key={a.id} academy={a} programsCount={academyPrograms.filter((p) => p.academyId === a.id).length} compact />
           ))}
         </HScroll>
       </View>

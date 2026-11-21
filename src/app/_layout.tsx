@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastProvider } from '@/components/overlays';
 import { AppProvider, useApp } from '@/store/AppStore';
 import { SupportProvider } from '@/store/support';
+import { AcademiesProvider } from '@/store/academies';
 import { colors } from '@/theme';
 
 // Layout direction is handled by the app itself (per selected language),
@@ -49,6 +50,9 @@ function RootNavigator() {
           <Stack.Screen name="support/index" />
           <Stack.Screen name="support/new" />
           <Stack.Screen name="support/[id]" />
+          <Stack.Screen name="academies" />
+          <Stack.Screen name="academy/[id]" />
+          <Stack.Screen name="academy-admin" />
         </Stack.Protected>
       </Stack>
     </>
@@ -60,9 +64,11 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AppProvider>
         <SupportProvider>
-          <ToastProvider>
-            <RootNavigator />
-          </ToastProvider>
+          <AcademiesProvider>
+            <ToastProvider>
+              <RootNavigator />
+            </ToastProvider>
+          </AcademiesProvider>
         </SupportProvider>
       </AppProvider>
     </SafeAreaProvider>

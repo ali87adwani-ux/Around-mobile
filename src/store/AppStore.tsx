@@ -44,6 +44,8 @@ interface PersistedState {
   registrations: Record<string, string>;
   ownerBlocks: OwnerBlock[];
   demoOwner: boolean;
+  demoAcademy: boolean;
+  demoAdmin: boolean;
   demoPrices: Record<string, number>;
 }
 
@@ -70,6 +72,8 @@ const initial = (): PersistedState => ({
   registrations: {},
   ownerBlocks: [],
   demoOwner: false,
+  demoAcademy: false,
+  demoAdmin: false,
   demoPrices: {},
 });
 
@@ -88,6 +92,7 @@ type Action =
   | { type: 'ownerBlock'; block: OwnerBlock }
   | { type: 'ownerUnblock'; id: string }
   | { type: 'setDemoOwner'; on: boolean }
+  | { type: 'setDemoRole'; key: 'demoAcademy' | 'demoAdmin'; on: boolean }
   | { type: 'setDemoPrice'; pitchId: string; price: number }
   | { type: 'signedOut' }
   | { type: 'reset' };
@@ -129,6 +134,8 @@ function reducer(state: State, a: Action): State {
       return { ...state, ownerBlocks: state.ownerBlocks.filter((b) => b.id !== a.id) };
     case 'setDemoOwner':
       return { ...state, demoOwner: a.on };
+    case 'setDemoRole':
+      return { ...state, [a.key]: a.on };
     case 'setDemoPrice':
       return { ...state, demoPrices: { ...state.demoPrices, [a.pitchId]: a.price } };
     case 'signedOut':
@@ -536,7 +543,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (live) refresh();
           return ok();
         }),
-      role: live ? role : state.demoOwner ? 'owner' : 'player',
+      role: live ? role : state.demoAdmin ? 'admin' : state.demoOwner ? 'owner' : state.demoAcademy ? 'academy' : 'player',
       sendCode: (phone) =>
         guard(async () => {
           if (!supabase) return ok();

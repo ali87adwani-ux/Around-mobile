@@ -101,3 +101,13 @@ export function kwOffset(dateISO: string): number {
 export function kwDateFromOffset(offset: number): string {
   return new Date(Date.parse(kwTodayISO()) + offset * 86400000).toISOString().slice(0, 10);
 }
+
+const dayNamesAr = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+const dayNamesEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+/** 0 = Sunday … 6 = Saturday */
+export function dayLabel(i: number, lang: Lang) {
+  return (lang === 'ar' ? dayNamesAr : dayNamesEn)[i];
+}
+export function daysLabel(days: number[], lang: Lang) {
+  return [...days].sort().map((d) => dayLabel(d, lang)).join(lang === 'ar' ? '، ' : ', ');
+}

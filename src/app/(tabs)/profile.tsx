@@ -12,10 +12,11 @@ import { Button, Card, Chip, Divider, Field, HScroll, Row, Segmented, Tap, Txt, 
 import type { Lang, Level, Position } from '@/data/types';
 import { useApp } from '@/store/AppStore';
 import { useSupport } from '@/store/support';
+import { useAcademies } from '@/store/academies';
 import { colors, radius, space } from '@/theme';
 
 export default function Profile() {
-  const { t, me, state, dispatch, lang, pitches, myBookings, isOwner, mode, signOut, saveProfile, errText, allMatches, isJoined, setAvatar, removeAvatar } = useApp();
+  const { t, me, state, dispatch, lang, pitches, myBookings, isOwner, mode, signOut, saveProfile, errText, allMatches, isJoined, setAvatar, removeAvatar, role } = useApp();
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const d = useDir();
@@ -49,6 +50,7 @@ export default function Profile() {
   const upcomingBookings = myBookings.filter((b) => b.status === 'confirmed').length;
   const joinedCount = allMatches.filter((m) => isJoined(m.id)).length;
   const { tickets } = useSupport();
+  const { ownedAcademies } = useAcademies();
   const openTickets = tickets.filter((tk) => tk.status === 'answered').length;
   const favs = pitches.filter((p) => state.favorites.includes(p.id));
 
@@ -92,6 +94,8 @@ export default function Profile() {
           <Divider />
           <MenuItem icon="podium-outline" label={t('leaderboard')} onPress={() => router.push('/leaderboard')} />
           <Divider />
+          <MenuItem icon="school-outline" label={t('academies')} onPress={() => router.push('/academies')} />
+          <Divider />
           <MenuItem icon="headset-outline" label={t('support')} value={openTickets ? String(openTickets) : undefined} onPress={() => router.push('/support')} />
           {isOwner && (
             <>
@@ -99,16 +103,36 @@ export default function Profile() {
               <MenuItem icon="business-outline" label={t('ownerDashboard')} onPress={() => router.push('/owner')} />
             </>
           )}
+          {ownedAcademies.length > 0 && (
+            <>
+              <Divider />
+              <MenuItem icon="ribbon-outline" label={t('academyDashboard')} onPress={() => router.push('/academy-admin')} />
+            </>
+          )}
+          {role === 'admin' && (
+            <>
+              <Divider />
+              <MenuItem icon="shield-checkmark-outline" label={t('adminDashboard')} onPress={() => router.push('/admin')} />
+            </>
+          )}
         </Card>
         {mode === 'demo' && (
-          <Tap onPress={() => dispatch({ type: 'setDemoOwner', on: !state.demoOwner })} scale={0.99} style={{ marginTop: space.sm }}>
-            <Row gap={space.sm} justify="center">
-              <Ionicons name={state.demoOwner ? 'checkbox' : 'square-outline'} size={20} color={colors.primary} />
-              <Txt v="caption" color={colors.textMuted}>
-                {t('ownerDemoToggle')}
-              </Txt>
-            </Row>
-          </Tap>
+          <View style={{ marginTop: space.sm, gap: 4 }}>
+            {([
+              ['ownerDemoToggle', state.demoOwner, () => dispatch({ type: 'setDemoOwner', on: !state.demoOwner })],
+              ['academyDemoToggle', state.demoAcademy, () => dispatch({ type: 'setDemoRole', key: 'demoAcademy', on: !state.demoAcademy })],
+              ['adminDemoToggle', state.demoAdmin, () => dispatch({ type: 'setDemoRole', key: 'demoAdmin', on: !state.demoAdmin })],
+            ] as const).map(([label, on, toggle]) => (
+              <Tap key={label} onPress={toggle} scale={0.99} style={{ paddingVertical: 4 }}>
+                <Row gap={space.sm} justify="center">
+                  <Ionicons name={on ? 'checkbox' : 'square-outline'} size={20} color={colors.primary} />
+                  <Txt v="caption" color={colors.textMuted}>
+                    {t(label)}
+                  </Txt>
+                </Row>
+              </Tap>
+            ))}
+          </View>
         )}
       </View>
 
