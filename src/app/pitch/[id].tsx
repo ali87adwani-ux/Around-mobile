@@ -14,6 +14,7 @@ import { bookingPrice, isOffPeak } from '@/lib/pricing';
 import type { Amenity, PitchSize } from '@/data/types';
 import { dateFromOffset, formatDay, formatDuration, formatHour, toISODate, weekdayShort } from '@/i18n/format';
 import { useApp } from '@/store/AppStore';
+import { useInviteFriends } from '@/store/inviteFriends';
 import { colors, radius, shadow, space } from '@/theme';
 
 const amenityIcon: Record<Amenity, IconName> = {
@@ -32,6 +33,8 @@ const sizeMultiplier: Record<PitchSize, number> = { 5: 1, 6: 1.2, 7: 1.5, 11: 2.
 export default function PitchScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, l, lang, money, getPitch, bookedHours, loadBusy, bookPitch, errText, getReviews, loadReviews, canReview, addReview } = useApp();
+  const friends = useInviteFriends();
+  const [lastBooking, setLastBooking] = useState<{ id: string; pitchId: string; dateISO: string; hour: number; duration: number; size: number; total: number } | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [stars, setStars] = useState(5);
   const [comment, setComment] = useState('');
@@ -87,6 +90,7 @@ export default function PitchScreen() {
       return;
     }
     haptic.success();
+    if (r.id) setLastBooking({ id: r.id, pitchId: pitch.id, dateISO: iso, hour, duration, size, total: price });
     setTimeout(() => setSuccess(true), 250);
   };
 
@@ -437,8 +441,21 @@ export default function PitchScreen() {
           </Txt>
         </View>
         <View style={{ gap: space.sm }}>
+          {lastBooking && (
+            <Button
+              title={t('inviteFriends')}
+              icon="people"
+              loading={!!friends.busy}
+              onPress={async () => {
+                const r = await friends.invite(lastBooking);
+                if (r.ok) setSuccess(false);
+                else toast(errText(r.error), 'error');
+              }}
+            />
+          )}
           <Button
             title={t('viewBookings')}
+            kind={lastBooking ? 'secondary' : 'primary'}
             onPress={() => {
               setSuccess(false);
               router.push('/bookings');
@@ -450,7 +467,7 @@ export default function PitchScreen() {
             icon="people"
             onPress={() => {
               setSuccess(false);
-              router.push({ pathname: '/match/create', params: { pitchId: pitch.id, dayOffset: String(dayOff), hour: String(hour ?? '') } });
+              router.push({ pathname: '/match/create', params: { pitchId: pitch.id, dayOffset: String(dayOff), hour: String(hour ?? ''), size: String(size), duration: String(duration) } });
             }}
           />
           <Button

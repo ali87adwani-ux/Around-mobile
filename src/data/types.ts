@@ -72,6 +72,11 @@ export interface Match {
   playerIds: string[];
   organizerId: string;
   createdByMe?: boolean;
+  /** Private games are only visible to their players and people with the invite code. */
+  isPrivate?: boolean;
+  inviteCode?: string;
+  /** Side per player once the organiser has split the teams. */
+  teams?: Record<string, 'A' | 'B'>;
 }
 
 export interface TeamRow {

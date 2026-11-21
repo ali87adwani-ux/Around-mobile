@@ -23,7 +23,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function CreateMatch() {
-  const params = useLocalSearchParams<{ pitchId?: string; dayOffset?: string; hour?: string }>();
+  const params = useLocalSearchParams<{ pitchId?: string; dayOffset?: string; hour?: string; size?: string; duration?: string }>();
   const { t, l, lang, money, pitches, getPitch, bookedHours, loadBusy, createMatch, errText, state } = useApp();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -31,9 +31,10 @@ export default function CreateMatch() {
   const [pitchId, setPitchId] = useState(params.pitchId ?? pitches[0].id);
   const [dayOff, setDayOff] = useState(params.dayOffset ? Number(params.dayOffset) : new Date().getHours() >= 22 ? 1 : 0);
   const [hour, setHour] = useState<number | null>(params.hour ? Number(params.hour) : null);
-  const [duration, setDuration] = useState(1);
+  const [duration, setDuration] = useState(params.duration ? Number(params.duration) : 1);
   const pitch = getPitch(pitchId);
-  const [format, setFormat] = useState<PitchSize>(pitch.sizes[0]);
+  const [format, setFormat] = useState<PitchSize>(params.size && pitch.sizes.includes(Number(params.size) as PitchSize) ? (Number(params.size) as PitchSize) : pitch.sizes[0]);
+  const [isPrivate, setIsPrivate] = useState(false);
   const [level, setLevel] = useState<Level>(state.profile.level);
   // If the user arrives from a fresh booking, that slot is theirs: don't show it as taken.
   const fromBooking = !!params.hour;
@@ -64,7 +65,7 @@ export default function CreateMatch() {
   const publish = async () => {
     if (hour == null) return;
     setPublishing(true);
-    const r = await createMatch({ pitchId, dayOffset: dayOff, hour, duration, format, level, pricePerPlayer: perPlayer });
+    const r = await createMatch({ pitchId, dayOffset: dayOff, hour, duration, format, level, pricePerPlayer: perPlayer, isPrivate });
     setPublishing(false);
     if (!r.ok) {
       toast(errText(r.error), 'error');
@@ -74,7 +75,7 @@ export default function CreateMatch() {
     }
     haptic.success();
     toast(t('gameCreated'));
-    router.replace(`/match/${r.id}`);
+    router.replace(isPrivate ? { pathname: '/match/[id]', params: { id: r.id!, invite: '1' } } : `/match/${r.id}`);
   };
 
   return (
@@ -193,6 +194,14 @@ export default function CreateMatch() {
             ))}
           </Row>
         </Section>
+
+        <Section title={t('whoCanJoin')}>
+          <Row gap={8} wrap>
+            <Chip label={t('publicGame')} icon="earth" selected={!isPrivate} onPress={() => setIsPrivate(false)} />
+            <Chip label={t('privateGame')} icon="lock-closed" selected={isPrivate} onPress={() => setIsPrivate(true)} />
+          </Row>
+          <Txt v="caption" color={colors.textMuted}>{t(isPrivate ? 'privateOnHint' : 'privateOffHint')}</Txt>
+        </Section>
       </ScrollView>
 
       <View style={[{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.card, padding: space.lg, paddingBottom: insets.bottom + space.md, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, gap: space.md }, shadow]}>
@@ -209,7 +218,7 @@ export default function CreateMatch() {
             {money(perPlayer)}
           </Txt>
         </Row>
-        <Button title={t('publishGame')} icon="megaphone" disabled={hour == null} loading={publishing} onPress={publish} />
+        <Button title={isPrivate ? t('createPrivateGame') : t('publishGame')} icon={isPrivate ? 'lock-closed' : 'megaphone'} disabled={hour == null} loading={publishing} onPress={publish} />
       </View>
     </View>
   );

@@ -7,6 +7,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { Badge, Button, Card, EmptyState, PitchArt, Row, Segmented, Txt } from '@/components/ui';
 import { formatDay, formatDuration, formatHour, fromISODate, offsetOf } from '@/i18n/format';
 import { useApp } from '@/store/AppStore';
+import { useInviteFriends } from '@/store/inviteFriends';
 import { colors, space } from '@/theme';
 
 export default function Bookings() {
@@ -14,6 +15,7 @@ export default function Bookings() {
   const toast = useToast();
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
   const [cancelId, setCancelId] = useState<string | null>(null);
+  const friends = useInviteFriends();
   const labels = { today: t('today'), tomorrow: t('tomorrow') };
 
   const isUpcoming = (iso: string, status: string) => status === 'confirmed' && offsetOf(fromISODate(iso)) >= 0;
@@ -69,7 +71,22 @@ export default function Bookings() {
                   {cancelled ? <Badge label={t('cancelled')} color={colors.danger} bg={colors.dangerSoft} /> : null}
                 </View>
               </Row>
-              {tab === 'upcoming' && !cancelled && <Button title={t('cancelBooking')} kind="danger" small onPress={() => setCancelId(b.id)} />}
+              {tab === 'upcoming' && !cancelled && (
+                <Row gap={space.sm}>
+                  <Button
+                    title={t('inviteFriends')}
+                    icon="people"
+                    small
+                    loading={friends.busy === b.id}
+                    style={{ flex: 1.3 }}
+                    onPress={async () => {
+                      const r = await friends.invite(b);
+                      if (!r.ok) toast(errText(r.error), 'error');
+                    }}
+                  />
+                  <Button title={t('cancelBooking')} kind="danger" small style={{ flex: 1 }} onPress={() => setCancelId(b.id)} />
+                </Row>
+              )}
             </Card>
           );
         }}

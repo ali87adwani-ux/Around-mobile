@@ -23,6 +23,7 @@ import { cancelReminder, scheduleReminder } from '@/lib/reminders';
 import { registerForPush, unregisterPush } from '@/lib/push';
 import { currentLocation, distanceKm, type Coords } from '@/lib/location';
 import * as api from '@/lib/api';
+import { balanceLocal } from '@/lib/teams';
 import type { OwnerSlot } from '@/lib/api';
 import { backendEnabled, supabase } from '@/lib/supabase';
 
@@ -112,6 +113,7 @@ type Action =
   | { type: 'join'; id: string }
   | { type: 'leave'; id: string }
   | { type: 'createMatch'; match: Match }
+  | { type: 'patchMatch'; id: string; patch: Partial<Match> }
   | { type: 'register'; tournamentId: string; teamName: string }
   | { type: 'toggleFavorite'; id: string }
   | { type: 'ownerBlock'; block: OwnerBlock }
@@ -158,6 +160,8 @@ function reducer(state: State, a: Action): State {
       };
     case 'createMatch':
       return { ...state, createdMatches: [a.match, ...state.createdMatches], joinedMatchIds: [...state.joinedMatchIds, a.match.id] };
+    case 'patchMatch':
+      return { ...state, createdMatches: state.createdMatches.map((m) => (m.id === a.id ? { ...m, ...a.patch } : m)) };
     case 'register':
       return { ...state, registrations: { ...state.registrations, [a.tournamentId]: a.teamName } };
     case 'toggleFavorite':
@@ -263,7 +267,14 @@ interface Ctx {
   // actions
   bookPitch: (p: { pitchId: string; dateISO: string; hour: number; duration: number; size: number; total: number }) => Promise<Result>;
   cancelBooking: (id: string) => Promise<Result>;
-  createMatch: (p: { pitchId: string; dayOffset: number; hour: number; duration: number; format: PitchSize; level: Match['level']; pricePerPlayer: number }) => Promise<Result>;
+  createMatch: (p: { pitchId: string; dayOffset: number; hour: number; duration: number; format: PitchSize; level: Match['level']; pricePerPlayer: number; isPrivate?: boolean }) => Promise<Result>;
+  /** Organiser tools: invite code, private/public, fixed-team invite, balancing and moving players. */
+  matchCode: (id: string) => Promise<Result>;
+  setMatchPrivate: (id: string, isPrivate: boolean) => Promise<Result>;
+  joinMatchByCode: (code: string) => Promise<Result>;
+  inviteTeamToMatch: (matchId: string, teamId: string) => Promise<Result>;
+  balanceTeams: (matchId: string, shuffle: boolean) => Promise<Result>;
+  setPlayerTeams: (matchId: string, sides: Record<string, 'A' | 'B' | null>) => Promise<Result>;
   joinMatch: (id: string) => Promise<Result>;
   leaveMatch: (id: string) => Promise<Result>;
   registerTeam: (tournamentId: string, name: string) => Promise<Result>;
@@ -316,6 +327,7 @@ function hash(s: string) {
 }
 
 const ok = (id?: string): Result => ({ ok: true, id });
+const demoCode = () => Math.random().toString(36).slice(2, 8).toUpperCase();
 const fail = (e: unknown): Result => ({ ok: false, error: api.errorCode(e) });
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -650,14 +662,83 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             const id = `c${Date.now()}`;
             dispatch({
               type: 'createMatch',
-              match: { id, pitchId: p.pitchId, dayOffset: p.dayOffset, hour: p.hour, duration: p.duration, format: p.format, level: p.level, pricePerPlayer: p.pricePerPlayer, maxPlayers: p.format * 2, playerIds: [ME_ID], organizerId: ME_ID, createdByMe: true },
+              match: { id, pitchId: p.pitchId, dayOffset: p.dayOffset, hour: p.hour, duration: p.duration, format: p.format, level: p.level, pricePerPlayer: p.pricePerPlayer, maxPlayers: p.format * 2, playerIds: [ME_ID], organizerId: ME_ID, createdByMe: true, isPrivate: !!p.isPrivate, inviteCode: demoCode() },
             });
             return ok(id);
           }
           const row = await api.createMatch(p);
+          if (p.isPrivate) await api.setMatchPrivate(row.id, true);
           remind(`m:${row.id}`, p.pitchId, toISODate(dateFromOffset(p.dayOffset)), p.hour);
           await refresh();
           return ok(row.id);
+        }),
+      matchCode: (id) =>
+        guard(async () => {
+          const m = allMatches.find((x) => x.id === id);
+          if (!live) {
+            const code = m?.inviteCode ?? demoCode();
+            if (m?.createdByMe && !m.inviteCode) dispatch({ type: 'patchMatch', id, patch: { inviteCode: code } });
+            return ok(code);
+          }
+          return ok(m?.inviteCode ?? (await api.matchInviteCode(id)));
+        }),
+      setMatchPrivate: (id, isPrivate) =>
+        guard(async () => {
+          if (!live) {
+            dispatch({ type: 'patchMatch', id, patch: { isPrivate } });
+            return ok();
+          }
+          await api.setMatchPrivate(id, isPrivate);
+          await refresh();
+          return ok();
+        }),
+      joinMatchByCode: (code) =>
+        guard(async () => {
+          const c = code.trim().toUpperCase();
+          if (!live) {
+            const m = allMatches.find((x) => x.inviteCode === c);
+            if (!m) return { ok: false, error: 'code_not_found' };
+            if (m.playerIds.length >= m.maxPlayers) return { ok: false, error: 'match_full' };
+            dispatch({ type: 'join', id: m.id });
+            return ok(m.id);
+          }
+          const id = await api.joinMatchByCode(c);
+          await refresh();
+          const jm = allMatches.find((m) => m.id === id);
+          if (jm) remind(`m:${id}`, jm.pitchId, toISODate(dateFromOffset(jm.dayOffset)), jm.hour);
+          return ok(id);
+        }),
+      inviteTeamToMatch: (matchId, teamId) =>
+        guard(async () => {
+          if (!live) return ok('0');
+          return ok(String(await api.inviteTeamToMatch(matchId, teamId)));
+        }),
+      balanceTeams: (matchId, shuffle) =>
+        guard(async () => {
+          const m = allMatches.find((x) => x.id === matchId);
+          if (!live) {
+            if (m) dispatch({ type: 'patchMatch', id: matchId, patch: { teams: balanceLocal(m.playerIds, getPlayer, shuffle) } });
+            return ok();
+          }
+          await api.balanceTeams(matchId, shuffle);
+          await refresh();
+          return ok();
+        }),
+      setPlayerTeams: (matchId, sides) =>
+        guard(async () => {
+          if (!live) {
+            const m = allMatches.find((x) => x.id === matchId);
+            const teams = { ...(m?.teams ?? {}) };
+            for (const [uid, team] of Object.entries(sides)) {
+              if (team) teams[uid] = team;
+              else delete teams[uid];
+            }
+            dispatch({ type: 'patchMatch', id: matchId, patch: { teams } });
+            return ok();
+          }
+          for (const [uid, team] of Object.entries(sides)) await api.setPlayerTeam(matchId, uid, team);
+          await refresh();
+          return ok();
         }),
       joinMatch: (id) =>
         guard(async () => {

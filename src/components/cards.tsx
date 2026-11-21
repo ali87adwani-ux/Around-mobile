@@ -108,6 +108,7 @@ export function MatchCard({ match, compact }: { match: Match; compact?: boolean 
           <Row gap={6} style={{ marginTop: 4 }}>
             <Badge label={`${match.format}×${match.format}`} icon="football-outline" />
             <LevelBadge level={match.level} />
+            {match.isPrivate && <Ionicons name="lock-closed" size={14} color={colors.warning} />}
           </Row>
         </View>
       </Row>

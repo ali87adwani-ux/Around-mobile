@@ -27,6 +27,7 @@ const demoSeed = (): AppNotification[] => {
 /** Where a notification leads when tapped. */
 export function notificationRoute(n: { kind?: string; data?: Record<string, string> }): string | null {
   const d = n.data ?? {};
+  if (d.match_code) return `/match/join?code=${d.match_code}`;
   if (d.match_id) return `/match/${d.match_id}`;
   if (n.kind === 'payment_claimed') return '/admin';
   if (d.invite_code) return `/tournament/join?code=${d.invite_code}`;

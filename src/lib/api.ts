@@ -68,7 +68,7 @@ export async function fetchMatches(): Promise<{ matches: Match[]; playerIds: str
   const since = new Date(Date.now() - 3 * 86400000).toISOString();
   const { data, error } = await db()
     .from('matches')
-    .select('*, match_players(user_id, joined_at)')
+    .select('*, match_players(user_id, joined_at, team)')
     .in('status', ['open', 'played'])
     .gte('starts_at', since)
     .order('starts_at');
@@ -91,6 +91,9 @@ export async function fetchMatches(): Promise<{ matches: Match[]; playerIds: str
       maxPlayers: r.max_players,
       playerIds: players,
       organizerId: r.organizer_id ?? '',
+      isPrivate: !!r.is_private,
+      inviteCode: r.invite_code ?? undefined,
+      teams: Object.fromEntries((r.match_players ?? []).filter((p: { team?: string }) => p.team).map((p: { user_id: string; team: 'A' | 'B' }) => [p.user_id, p.team])),
     };
   });
   return { matches, playerIds: [...ids] };
@@ -243,6 +246,40 @@ export async function createMatch(p: { pitchId: string; dayOffset: number; hour:
 
 export async function joinMatch(id: string) {
   const { error } = await db().rpc('join_match', { p_match: id });
+  if (error) throw error;
+}
+
+export async function matchInviteCode(id: string) {
+  const { data, error } = await db().rpc('match_invite_code', { p_match: id });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function setMatchPrivate(id: string, isPrivate: boolean) {
+  const { data, error } = await db().rpc('set_match_private', { p_match: id, p_private: isPrivate });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function joinMatchByCode(code: string) {
+  const { data, error } = await db().rpc('join_match_by_code', { p_code: code.trim() });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function inviteTeamToMatch(matchId: string, teamId: string) {
+  const { data, error } = await db().rpc('invite_team_to_match', { p_match: matchId, p_team: teamId });
+  if (error) throw error;
+  return (data as number) ?? 0;
+}
+
+export async function balanceTeams(matchId: string, shuffle: boolean) {
+  const { error } = await db().rpc('balance_teams', { p_match: matchId, p_shuffle: shuffle });
+  if (error) throw error;
+}
+
+export async function setPlayerTeam(matchId: string, userId: string, team: 'A' | 'B' | null) {
+  const { error } = await db().rpc('set_player_team', { p_match: matchId, p_user: userId, p_team: team });
   if (error) throw error;
 }
 

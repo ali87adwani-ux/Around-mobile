@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
-import * as Linking from 'expo-linking';
-import { Linking as RNLinking, ScrollView, Share, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Linking as RNLinking, ScrollView, Share, Switch, View } from 'react-native';
+import { WEB_URL } from '@/config';
+import { sideLevel, sidesFor } from '@/lib/teams';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LevelBadge } from '@/components/cards';
 import { Stepper } from '@/components/academy';
@@ -15,8 +16,12 @@ import { useApp } from '@/store/AppStore';
 import { colors, radius, shadow, space } from '@/theme';
 
 export default function MatchScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { t, l, lang, money, getMatch, getPitch, getPlayer, matchPlayers, isJoined, joinMatch, leaveMatch, errText, meId } = useApp();
+  const { id, invite } = useLocalSearchParams<{ id: string; invite?: string }>();
+  const { t, l, lang, money, getMatch, getPitch, getPlayer, matchPlayers, isJoined, joinMatch, leaveMatch, errText, meId, matchCode, setMatchPrivate, inviteTeamToMatch, balanceTeams, setPlayerTeams } = useApp();
+  const [code, setCode] = useState<string | undefined>();
+  const [inviteOpen, setInviteOpen] = useState(invite === '1');
+  const [moving, setMoving] = useState<string | null>(null);
+  const [balancing, setBalancing] = useState(false);
   const [busyAction, setBusyAction] = useState(false);
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -28,6 +33,12 @@ export default function MatchScreen() {
   const [scoreA, setScoreA] = useState(0);
   const [scoreB, setScoreB] = useState(0);
   const [noShows, setNoShows] = useState<string[]>([]);
+  const canInvite = !!match && (match.organizerId === meId || isJoined(match.id));
+  useEffect(() => {
+    if (!match || !canInvite || code) return;
+    if (match.inviteCode) return setCode(match.inviteCode);
+    matchCode(match.id).then((r) => r.ok && r.id && setCode(r.id));
+  }, [match?.id, match?.inviteCode, canInvite]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!match) {
     return (
@@ -49,14 +60,23 @@ export default function MatchScreen() {
   const myVote = result?.votes[meId];
   const waitlist = eng.waitlistFor(match.id);
   const myWaitPos = waitlist.indexOf(meId) + 1;
-  const half = match.maxPlayers / 2;
-  const teamA = Array.from({ length: half }, (_, i) => ids[i * 2]);
-  const teamB = Array.from({ length: half }, (_, i) => ids[i * 2 + 1]);
+  const half = Math.ceil(match.maxPlayers / 2);
+  const { teamA, teamB, assigned } = sidesFor(ids, match.teams, match.maxPlayers);
+  const isOrganizer = match.organizerId === meId;
+  const { teams: myTeams } = eng;
   const organizer = getPlayer(match.organizerId);
   const date = dateFromOffset(match.dayOffset);
   const when = `${formatDay(date, lang, { today: t('today'), tomorrow: t('tomorrow') })} · ${formatHour(match.hour, lang)} – ${formatHour(match.hour + match.duration, lang)}`;
 
-  const shareText = `${t('appName')} ⚽ ${l(pitch.name)} — ${when} — ${t('spotsLeft', { n: Math.max(left, 0) })}\n${Linking.createURL(`match/${match.id}`)}`;
+  const link = code ? `${WEB_URL}/match/join?code=${code}` : `${WEB_URL}/match/${match.id}`;
+  const shareText = [
+    `${t('appName')} ⚽ ${l(pitch.name)}`,
+    when,
+    `${match.format}×${match.format} · ${money(match.pricePerPlayer)} ${t('perPlayer')}`,
+    left > 0 ? t('spotsLeft', { n: left }) : t('full'),
+    code ? t('inviteCodeLine', { code }) : '',
+    link,
+  ].filter(Boolean).join('\n');
   const share = () => Share.share({ message: shareText }).catch(() => {});
   const shareWhatsapp = () => RNLinking.openURL(`https://wa.me/?text=${encodeURIComponent(shareText)}`).catch(share);
 
@@ -75,7 +95,7 @@ export default function MatchScreen() {
     const p = getPlayer(pid);
     const isMe = pid === meId;
     return (
-      <Tap onPress={() => !isMe && router.push(`/player/${pid}`)} style={{ alignItems: 'center', gap: 4, width: 64 }}>
+      <Tap onPress={() => (isOrganizer && !isPast ? setMoving(pid) : !isMe && router.push(`/player/${pid}`))} style={{ alignItems: 'center', gap: 4, width: 64 }}>
         <View>
           <Avatar name={l(p.name)} color={isMe ? colors.accentDark : p.color} uri={p.avatarUrl} size={44} ring />
           <View style={{ position: 'absolute', bottom: -4, alignSelf: 'center', backgroundColor: '#0D1B33', borderRadius: 6, paddingHorizontal: 4 }}>
@@ -93,13 +113,14 @@ export default function MatchScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <ScreenHeader title={t('gameDetails')} right={<IconButton icon="share-social-outline" label="share" onPress={share} />} />
+      <ScreenHeader title={t('gameDetails')} right={<IconButton icon="share-social-outline" label="share" onPress={() => (canInvite ? setInviteOpen(true) : share())} />} />
       <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
         <Card style={{ gap: space.md }}>
           <Row gap={6}>
             <Badge label={`${match.format}×${match.format}`} icon="football-outline" />
             <LevelBadge level={match.level} />
             {joined && <Badge label={t('joined')} icon="checkmark-circle" />}
+            {match.isPrivate && <Badge label={t('privateGame')} icon="lock-closed" color={colors.warning} bg={colors.warningSoft} />}
           </Row>
           <Tap onPress={() => router.push(`/pitch/${pitch.id}`)} scale={0.99}>
             <Row gap={6}>
@@ -155,6 +176,72 @@ export default function MatchScreen() {
             </View>
           </PitchArt>
         </View>
+
+        {/* Organiser: split the sides */}
+        {isOrganizer && !isPast && (
+          <Card style={{ gap: space.md }}>
+            <Row gap={space.sm}>
+              <Ionicons name="git-compare-outline" size={20} color={colors.primary} />
+              <Txt v="h3" style={{ flex: 1 }}>{t('teamTools')}</Txt>
+              {assigned && (
+                <Txt v="tiny" color={colors.textMuted}>
+                  {t('levelVs', { a: sideLevel(teamA, getPlayer).toFixed(1), b: sideLevel(teamB, getPlayer).toFixed(1) })}
+                </Txt>
+              )}
+            </Row>
+            <Txt v="caption" color={colors.textMuted}>{t('teamToolsHint')}</Txt>
+            <Row gap={space.sm}>
+              <Button
+                title={t('balanceTeams')}
+                icon="sparkles"
+                small
+                loading={balancing}
+                disabled={ids.length < 2}
+                style={{ flex: 1 }}
+                onPress={async () => {
+                  setBalancing(true);
+                  const r = await balanceTeams(match.id, false);
+                  setBalancing(false);
+                  toast(r.ok ? t('teamsBalanced') : errText(r.error), r.ok ? 'success' : 'error');
+                }}
+              />
+              {assigned && (
+                <Button
+                  title={t('reshuffle')}
+                  icon="shuffle"
+                  kind="secondary"
+                  small
+                  disabled={balancing}
+                  style={{ flex: 1 }}
+                  onPress={async () => {
+                    setBalancing(true);
+                    const r = await balanceTeams(match.id, true);
+                    setBalancing(false);
+                    toast(r.ok ? t('teamsReshuffled') : errText(r.error), r.ok ? 'success' : 'error');
+                  }}
+                />
+              )}
+            </Row>
+          </Card>
+        )}
+
+        {/* Invite friends */}
+        {canInvite && !isPast && (
+          <Card style={{ gap: space.md }} onPress={() => setInviteOpen(true)}>
+            <Row gap={space.sm}>
+              <Ionicons name="people" size={20} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Txt v="h3">{t('inviteFriends')}</Txt>
+                <Txt v="caption" color={colors.textMuted}>{t('inviteFriendsSub', { price: money(match.pricePerPlayer) })}</Txt>
+              </View>
+              {!!code && (
+                <View style={{ backgroundColor: colors.primarySoft, borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 6 }}>
+                  <Txt v="bodyStrong" color={colors.primary} style={{ letterSpacing: 2 }}>{code}</Txt>
+                </View>
+              )}
+            </Row>
+          </Card>
+        )}
 
         {/* Result, MVP vote */}
         {isPast && (
@@ -272,7 +359,7 @@ export default function MatchScreen() {
           )
         ) : joined ? (
           <Row gap={space.sm}>
-            <Button title={t('shareWhatsapp')} icon="logo-whatsapp" onPress={shareWhatsapp} style={{ flex: 1 }} />
+            <Button title={t('inviteFriends')} icon="person-add" onPress={() => setInviteOpen(true)} style={{ flex: 1.4 }} />
             <Button title={t('leave')} kind="danger" onPress={() => setLeaving(true)} style={{ flex: 1 }} />
           </Row>
         ) : (
@@ -333,6 +420,105 @@ export default function MatchScreen() {
             }}
           />
         </ScrollView>
+      </Sheet>
+
+      <Sheet visible={inviteOpen} onClose={() => setInviteOpen(false)} title={t('inviteFriends')}>
+        <ScrollView style={{ maxHeight: 560 }} contentContainerStyle={{ gap: space.lg }}>
+          <View style={{ alignItems: 'center', gap: 6, backgroundColor: colors.primarySoft, borderRadius: radius.lg, padding: space.lg }}>
+            <Txt v="tiny" color={colors.textMuted}>{t('gameCode')}</Txt>
+            <Txt v="display" color={colors.primary} style={{ letterSpacing: 6 }}>{code ?? '······'}</Txt>
+            <Txt v="caption" color={colors.textMuted} center>{t('inviteCodeHint')}</Txt>
+          </View>
+          <Row justify="space-between" style={{ backgroundColor: colors.surfaceMuted, borderRadius: radius.md, padding: space.md }}>
+            <Txt v="bodyStrong">{t('perPlayerShare')}</Txt>
+            <Txt v="h3" color={colors.primary}>{money(match.pricePerPlayer)}</Txt>
+          </Row>
+          <Row gap={space.sm}>
+            <Button title={t('shareWhatsapp')} icon="logo-whatsapp" onPress={shareWhatsapp} style={{ flex: 1 }} />
+            <Button title={t('share')} icon="share-outline" kind="secondary" onPress={share} style={{ flex: 1 }} />
+          </Row>
+          {isOrganizer && (
+            <Row gap={space.md} justify="space-between">
+              <View style={{ flex: 1 }}>
+                <Row gap={6}>
+                  <Ionicons name={match.isPrivate ? 'lock-closed' : 'earth'} size={16} color={colors.primary} />
+                  <Txt v="bodyStrong">{t('privateGame')}</Txt>
+                </Row>
+                <Txt v="caption" color={colors.textMuted}>{t(match.isPrivate ? 'privateOnHint' : 'privateOffHint')}</Txt>
+              </View>
+              <Switch
+                value={!!match.isPrivate}
+                trackColor={{ true: colors.primary, false: colors.border }}
+                onValueChange={async (v) => {
+                  const r = await setMatchPrivate(match.id, v);
+                  if (!r.ok) toast(errText(r.error), 'error');
+                }}
+              />
+            </Row>
+          )}
+          {isOrganizer && myTeams.length > 0 && (
+            <View style={{ gap: space.sm }}>
+              <Txt v="label" color={colors.textMuted}>{t('inviteFixedTeam')}</Txt>
+              <Row gap={8} wrap>
+                {myTeams.map((tm) => (
+                  <Chip
+                    key={tm.id}
+                    label={tm.name}
+                    icon="shield-outline"
+                    onPress={async () => {
+                      const r = await inviteTeamToMatch(match.id, tm.id);
+                      toast(r.ok ? t('teamInvitedN', { n: Number(r.id ?? 0) }) : errText(r.error), r.ok ? 'success' : 'error');
+                    }}
+                  />
+                ))}
+              </Row>
+            </View>
+          )}
+        </ScrollView>
+      </Sheet>
+
+      <Sheet visible={!!moving} onClose={() => setMoving(null)} title={moving ? (moving === meId ? t('you') : l(getPlayer(moving).name)) : undefined}>
+        {moving && (
+          <View style={{ gap: space.sm }}>
+            <Txt v="caption" color={colors.textMuted}>{t('movePlayerHint')}</Txt>
+            <Row gap={space.sm}>
+              {(['A', 'B'] as const).map((side) => {
+                const current = (side === 'A' ? teamA : teamB).includes(moving);
+                return (
+                  <Button
+                    key={side}
+                    title={side === 'A' ? t('teamA') : t('teamB')}
+                    kind={current ? 'primary' : 'secondary'}
+                    icon={current ? 'checkmark-circle' : 'swap-horizontal'}
+                    style={{ flex: 1 }}
+                    onPress={async () => {
+                      const who = moving;
+                      setMoving(null);
+                      if (current && assigned) return;
+                      // Lock everyone's current side first so only this player moves.
+                      const sides: Record<string, 'A' | 'B'> = { [who]: side };
+                      if (!assigned) for (const pid of ids) if (pid !== who) sides[pid] = teamA.includes(pid) ? 'A' : 'B';
+                      const r = await setPlayerTeams(match.id, sides);
+                      toast(r.ok ? t('playerMoved') : errText(r.error), r.ok ? 'success' : 'error');
+                    }}
+                  />
+                );
+              })}
+            </Row>
+            {moving !== meId && (
+              <Button
+                title={t('viewProfile')}
+                kind="ghost"
+                icon="person-outline"
+                onPress={() => {
+                  const who = moving;
+                  setMoving(null);
+                  router.push(`/player/${who}`);
+                }}
+              />
+            )}
+          </View>
+        )}
       </Sheet>
 
       <ConfirmSheet

@@ -51,6 +51,7 @@ const ICONS: Record<string, IconName> = {
   account_restored: 'checkmark-circle',
   academy_fee_paid: 'cash',
   staff_joined: 'id-card',
+  match_invite: 'mail-open',
 };
 
 function ago(at: number, lang: 'ar' | 'en') {

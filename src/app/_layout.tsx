@@ -71,6 +71,7 @@ function RootNavigator() {
           <Stack.Screen name="tournament/new" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="tournament/mine" />
           <Stack.Screen name="tournament/join" />
+          <Stack.Screen name="match/join" />
           <Stack.Screen name="tournament/team/[id]" />
           <Stack.Screen name="tournament/fixture/[id]" />
           <Stack.Screen name="tournament/manage/[id]" />
