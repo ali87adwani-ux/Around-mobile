@@ -53,7 +53,7 @@ export function PitchCard({ pitch, compact }: { pitch: Pitch; compact?: boolean 
         <Row gap={4}>
           <Ionicons name="location-outline" size={14} color={colors.textMuted} />
           <Txt v="caption" color={colors.textMuted} numberOfLines={1}>
-            {l(pitch.area)}{pitch.distanceKm > 0 && pitch.distanceKm < 999 ? ` · ${pitch.distanceKm} ${t('km')}` : ''}
+            {l(pitch.area)}{pitch.distanceKm > 0 && pitch.distanceKm < 999 ? ` · ${pitch.distanceKm} ${t('km')}` : ''}{(pitch.courts ?? 1) > 1 ? ` · ${t('courtsN', { n: pitch.courts ?? 1 })}` : ''}
           </Txt>
         </Row>
         <Row gap={2} style={{ marginTop: 2 }}>

@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Stepper } from '@/components/academy';
 import { LocationPicker, PhotoPicker } from '@/components/ListingInputs';
 import { useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -32,6 +33,7 @@ export default function EditPitch() {
   const [loc, setLoc] = useState<Coords | null>(p?.lat != null && p?.lng != null ? { lat: p.lat, lng: p.lng } : null);
   const [photos, setPhotos] = useState<string[]>(p?.photoPaths ?? []);
   const [busy, setBusy] = useState(false);
+  const [courts, setCourts] = useState(p?.courts ?? 1);
 
   if (!p || (p.ownerId !== meId && role !== 'admin')) {
     return (
@@ -53,6 +55,7 @@ export default function EditPitch() {
     setBusy(true);
     try {
       await api.updatePitchDetails(p.id, { nameAr: nameAr.trim(), nameEn: nameEn.trim(), area: area.trim(), governorate: gov, address: address.trim(), sizes, surface, indoor, lat: loc?.lat, lng: loc?.lng, photos });
+      if (courts !== (p.courts ?? 1)) await api.setPitchCourts(p.id, courts);
       const removed = (p.photoPaths ?? []).filter((x) => !photos.includes(x));
       await api.removeListingPhotos(removed).catch(() => {});
       await refresh();
@@ -83,6 +86,10 @@ export default function EditPitch() {
         </View>
         <Field label={t('pitchAddress')} value={address} onChangeText={setAddress} />
         <LocationPicker value={loc} onChange={setLoc} />
+        <View style={{ gap: space.sm }}>
+          <Txt v="label" color={colors.textMuted}>{t('courtsAtVenue')}</Txt>
+          <Stepper value={courts} onChange={setCourts} min={1} max={20} format={(v) => t('courtsN', { n: v })} />
+        </View>
         <View style={{ gap: space.sm }}>
           <Txt v="label" color={colors.textMuted}>{t('pitchSizes')}</Txt>
           <Row gap={8} wrap>

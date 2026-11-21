@@ -35,7 +35,7 @@ export function notificationRoute(n: { kind?: string; data?: Record<string, stri
   if (d.team_id && d.tournament_id) return `/tournament/team/${d.team_id}?t=${d.tournament_id}`;
   if (d.tournament_id) return n.kind === 'team_registered' || n.kind === 'team_withdrew' || n.kind?.startsWith('tournament_') && n.kind !== 'tournament_finished' && n.kind !== 'tournament_cancelled' ? `/tournament/manage/${d.tournament_id}` : `/tournament/${d.tournament_id}`;
   if (d.ticket_id) return `/support/${d.ticket_id}`;
-  if (n.kind === 'booking_new' || n.kind === 'booking_cancelled' || n.kind === 'pitch_approved') return '/owner';
+  if (n.kind === 'booking_new' || n.kind === 'booking_cancelled' || n.kind === 'pitch_approved' || n.kind === 'staff_joined') return '/owner';
   if (n.kind === 'pitch_rejected' || n.kind === 'academy_rejected') return '/listings';
   if (n.kind === 'academy_approved') return '/academy-admin';
   if (n.kind === 'booking_cancelled_by_staff') return '/bookings';

@@ -20,7 +20,7 @@ import { remindersSupported } from '@/lib/reminders';
 import { colors, radius, space } from '@/theme';
 
 export default function Profile() {
-  const { t, me, state, dispatch, lang, pitches, myBookings, isOwner, mode, signOut, saveProfile, errText, allMatches, isJoined, setAvatar, removeAvatar, role, deleteAccount, myListings } = useApp();
+  const { t, me, state, dispatch, lang, pitches, myBookings, isOwner, mode, signOut, saveProfile, errText, allMatches, isJoined, setAvatar, removeAvatar, role, deleteAccount, myListings, staffPitches } = useApp();
   const { unread } = useNotifications();
   const [delAccount, setDelAccount] = useState(false);
   const [trophies, setTrophies] = useState<Trophy[]>([]);
@@ -143,6 +143,12 @@ export default function Profile() {
             value={myListings.length + myAcademyListings.length ? String(myListings.length + myAcademyListings.length) : undefined}
             onPress={() => router.push('/listings')}
           />
+          {mode === 'live' && (
+            <>
+              <Divider />
+              <MenuItem icon="id-card-outline" label={t('joinAsStaff')} onPress={() => router.push('/staff/join')} />
+            </>
+          )}
           {(myListings.some((x) => (x.status ?? 'approved') === 'approved') || ownedAcademies.length > 0) && (
             <>
               <Divider />
@@ -155,6 +161,12 @@ export default function Profile() {
               <MenuItem icon="speedometer-outline" label={t('ownerDashboard')} onPress={() => router.push('/owner')} />
               <Divider />
               <MenuItem icon="trophy-outline" label={t('myTournaments')} onPress={() => router.push('/tournament/mine')} />
+            </>
+          )}
+          {!isOwner && staffPitches.length > 0 && (
+            <>
+              <Divider />
+              <MenuItem icon="id-card-outline" label={t('staffDashboard')} value={String(staffPitches.length)} onPress={() => router.push('/owner')} />
             </>
           )}
           {ownedAcademies.length > 0 && (

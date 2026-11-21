@@ -281,6 +281,9 @@ interface Ctx {
   // pitch listings
   /** Every pitch the user listed, including ones waiting for review. */
   myListings: Pitch[];
+  /** Pitches this user helps run as staff (schedule only). */
+  staffPitches: Pitch[];
+  reloadStaff: () => Promise<void>;
   /** Asks for the device location once and sorts pitches by real distance. */
   locate: () => Promise<boolean>;
   hasLocation: boolean;
@@ -430,6 +433,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   /** Every pitch including deactivated ones (admin). */
   const [userLoc, setUserLoc] = useState<Coords | null>(null);
+  const [staffIds, setStaffIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!live || !userId) return setStaffIds([]);
+    api.myStaffPitches().then(setStaffIds).catch(() => {});
+  }, [live, userId, remote.pitches]);
   const [myStats, setMyStats] = useState<{ played: number; goals: number; mvp: number; titles: number } | null>(null);
   useEffect(() => {
     if (!live || !userId) return setMyStats(null);
@@ -764,6 +772,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }),
       myListings,
       hasLocation: !!userLoc,
+      staffPitches: allPitches.filter((p) => staffIds.includes(p.id) && p.ownerId !== meId),
+      reloadStaff: async () => setStaffIds(await api.myStaffPitches()),
       locate: async () => {
         const c = await currentLocation();
         if (c) setUserLoc(c);
@@ -895,7 +905,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return ok();
         }),
     };
-  }, [state, themeName, live, reviewCache, userId, role, authChecked, loading, lang, isRTL, t, l, money, errText, meId, me, pitches, allPitches, players, tournaments, allMatches, myBookings, isJoined, bookedHours, loadBusy, refresh, isOwner, ownerPitches, myListings, userLoc]);
+  }, [state, themeName, live, reviewCache, userId, role, authChecked, loading, lang, isRTL, t, l, money, errText, meId, me, pitches, allPitches, players, tournaments, allMatches, myBookings, isJoined, bookedHours, loadBusy, refresh, isOwner, ownerPitches, myListings, userLoc, staffIds]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

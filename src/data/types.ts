@@ -27,6 +27,8 @@ export interface Pitch {
   photos?: string[];
   photoPaths?: string[];
   nameEn?: string;
+  /** Identical courts at this venue (a booking takes any free one). */
+  courts?: number;
   governorate: Governorate;
   lat?: number;
   lng?: number;

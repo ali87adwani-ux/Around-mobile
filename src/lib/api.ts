@@ -11,7 +11,7 @@ const db = () => {
   return supabase;
 };
 
-export type OwnerSlot = { id: string; hour: number; duration: number; status: 'confirmed' | 'blocked'; playerName: string; total: number; noShow?: boolean; startsAt?: string };
+export type OwnerSlot = { id: string; hour: number; duration: number; status: 'confirmed' | 'blocked'; playerName: string; total: number; noShow?: boolean; startsAt?: string; court?: number };
 
 const palette = ['#0B2E6F', '#1E56B3', '#C2185B', '#E65100', '#6A1B9A', '#00838F', '#5D4037', '#283593', '#AD1457', '#2E7D32'];
 export function colorFor(id: string) {
@@ -56,6 +56,7 @@ export async function fetchPitches(): Promise<Pitch[]> {
     active: r.active,
     status: r.status ?? 'approved',
     governorate: r.governorate,
+    courts: r.courts ?? 1,
     photos: (r.photos ?? []).map(photoUrl),
     photoPaths: r.photos ?? [],
     nameEn: r.name_en,
@@ -723,9 +724,30 @@ export const academyMarkPaid = (enrollmentId: string, month: string, paid: boole
 export const academyMarkAttendance = (enrollmentId: string, day: string, present: boolean | null) => rpc('academy_mark_attendance', { p_enrollment: enrollmentId, p_day: day, p_present: present });
 
 export async function ownerDay(pitchId: string, dateISO: string): Promise<OwnerSlot[]> {
-  const { data, error } = await db().rpc('owner_day_v2', { p_pitch: pitchId, p_day: dateISO });
-  if (error) return ownerDayV1(pitchId, dateISO);
-  return ((data ?? []) as Record<string, any>[]).map((r) => ({
-    id: r.id, hour: kwParts(r.starts_at).hour, duration: hoursBetween(r.starts_at, r.ends_at), status: r.status === 'blocked' ? 'blocked' : 'confirmed', playerName: r.player_name, total: Number(r.total), noShow: r.no_show, startsAt: r.starts_at,
-  }));
+  const map = (rows: Record<string, any>[]) =>
+    rows.map((r) => ({
+      id: r.id, hour: kwParts(r.starts_at).hour, duration: hoursBetween(r.starts_at, r.ends_at), status: (r.status === 'blocked' ? 'blocked' : 'confirmed') as OwnerSlot['status'],
+      playerName: r.player_name, total: Number(r.total), noShow: r.no_show ?? false, startsAt: r.starts_at, court: r.court_no ?? 1,
+    }));
+  const v3 = await db().rpc('owner_day_v3', { p_pitch: pitchId, p_day: dateISO });
+  if (!v3.error) return map((v3.data ?? []) as Record<string, any>[]);
+  const v2 = await db().rpc('owner_day_v2', { p_pitch: pitchId, p_day: dateISO });
+  if (!v2.error) return map((v2.data ?? []) as Record<string, any>[]);
+  return ownerDayV1(pitchId, dateISO);
+}
+
+/* ---------- v6: courts & staff ---------- */
+
+export const setPitchCourts = (pitchId: string, courts: number) => rpc('set_pitch_courts', { p_pitch: pitchId, p_courts: courts });
+export const createStaffInvite = (pitchId: string) => rpc<string>('create_staff_invite', { p_pitch: pitchId });
+export const acceptStaffInvite = (code: string) => rpc<string>('accept_staff_invite', { p_code: code });
+export const removeStaff = (pitchId: string, userId: string) => rpc('remove_staff', { p_pitch: pitchId, p_user: userId });
+export async function staffList(pitchId: string): Promise<{ userId: string; name: string; avatarUrl?: string }[]> {
+  const data = await rpc<Record<string, any>[]>('pitch_staff_list', { p_pitch: pitchId });
+  return (data ?? []).map((r) => ({ userId: r.user_id, name: r.name, avatarUrl: r.avatar_url ?? undefined }));
+}
+export async function myStaffPitches(): Promise<string[]> {
+  const { data, error } = await db().rpc('my_staff_pitches');
+  if (error) return [];
+  return ((data ?? []) as (string | { my_staff_pitches: string })[]).map((x) => (typeof x === 'string' ? x : x.my_staff_pitches));
 }

@@ -30,6 +30,7 @@ export default function NewListing() {
   const [nameEn, setNameEn] = useState('');
   const [loc, setLoc] = useState<Coords | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
+  const [courts, setCourts] = useState(1);
   const [price, setPrice] = useState(12);
   const [sizes, setSizes] = useState<PitchSize[]>([5]);
   const [surface, setSurface] = useState<'artificial' | 'natural'>('artificial');
@@ -68,6 +69,7 @@ export default function NewListing() {
         .updatePitchDetails(r.id, { nameAr: name.trim(), nameEn: nameEn.trim(), area: area.trim(), governorate: gov, address: address.trim(), sizes, surface, indoor, lat: loc?.lat, lng: loc?.lng, photos })
         .catch(() => toast(t('photosNotSaved'), 'error'));
     }
+    if (mode === 'live' && r.id && courts > 1) await api.setPitchCourts(r.id, courts).catch(() => {});
     setBusy(false);
     haptic.success();
     toast(t('listingSent'), 'success');
@@ -110,6 +112,12 @@ export default function NewListing() {
         <View style={{ gap: space.sm }}>
           <Txt v="label" color={colors.textMuted}>{t('pricePerHour')}</Txt>
           <Stepper value={price} onChange={setPrice} min={3} max={200} step={0.5} format={(v) => money(v)} />
+        </View>
+
+        <View style={{ gap: space.sm }}>
+          <Txt v="label" color={colors.textMuted}>{t('courtsAtVenue')}</Txt>
+          <Stepper value={courts} onChange={setCourts} min={1} max={20} format={(v) => t('courtsN', { n: v })} />
+          <Txt v="tiny" color={colors.textFaint}>{t('courtsHint')}</Txt>
         </View>
 
         <View style={{ gap: space.sm }}>

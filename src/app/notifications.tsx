@@ -50,6 +50,7 @@ const ICONS: Record<string, IconName> = {
   account_suspended: 'ban',
   account_restored: 'checkmark-circle',
   academy_fee_paid: 'cash',
+  staff_joined: 'id-card',
 };
 
 function ago(at: number, lang: 'ar' | 'en') {

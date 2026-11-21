@@ -100,6 +100,7 @@ export default function PitchScreen() {
             <Row gap={6}>
               <Badge label={pitch.indoor ? t('indoor') : t('outdoor')} color={colors.white} bg="rgba(0,0,0,0.3)" icon={pitch.indoor ? 'home' : 'sunny'} />
               <Badge label={pitch.surface === 'artificial' ? t('artificial') : t('natural')} color={colors.white} bg="rgba(0,0,0,0.3)" icon="leaf" />
+              {(pitch.courts ?? 1) > 1 && <Badge label={t('courtsN', { n: pitch.courts ?? 1 })} color={colors.white} bg="rgba(0,0,0,0.3)" icon="grid" />}
             </Row>
           </View>
         </PitchArt>

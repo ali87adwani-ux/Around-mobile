@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Share, View } from 'react-native';
 import { Sheet, useToast } from '@/components/overlays';
 import * as api from '@/lib/api';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -14,11 +14,15 @@ import { useApp, type OwnerSlot } from '@/store/AppStore';
 import { colors, radius, space } from '@/theme';
 
 export default function OwnerDashboard() {
-  const { t, l, lang, money, ownerPitches, ownerDay, ownerBlock, ownerUnblock, ownerUpdatePrice, errText, mode } = useApp();
+  const { t, l, lang, money, ownerPitches: ownPitches, staffPitches, ownerDay, ownerBlock, ownerUnblock, ownerUpdatePrice, errText, mode } = useApp();
+  // Owners see their own pitches; staff see the pitches they help run (schedule only).
+  const ownerPitches = useMemo(() => [...ownPitches, ...staffPitches.filter((sp) => !ownPitches.some((o) => o.id === sp.id))], [ownPitches, staffPitches]);
   const [tab, setTab] = useState<'schedule' | 'reports' | 'settings'>('schedule');
   const toast = useToast();
   const [pitchId, setPitchId] = useState(ownerPitches[0]?.id);
   const pitch = ownerPitches.find((p) => p.id === pitchId) ?? ownerPitches[0];
+  const staffOnly = !!pitch && !ownPitches.some((o) => o.id === pitch.id);
+  const courts = pitch?.courts ?? 1;
   const [dayOff, setDayOff] = useState(0);
   const iso = toISODate(dateFromOffset(dayOff));
   const [slots, setSlots] = useState<OwnerSlot[] | null>(null);
@@ -50,14 +54,14 @@ export default function OwnerDashboard() {
 
   const rows = useMemo(() => {
     if (!pitch || !slots) return [];
-    const out: { hour: number; slot?: OwnerSlot; covered?: boolean }[] = [];
+    const out: { hour: number; items: OwnerSlot[]; covered: number; free: number }[] = [];
     for (let h = pitch.openFrom; h < pitch.openTo; h++) {
-      const slot = slots.find((s) => Math.floor(s.hour) === h);
-      const covered = !slot && slots.some((s) => h > s.hour && h < s.hour + s.duration);
-      out.push({ hour: h, slot, covered });
+      const items = slots.filter((s) => Math.floor(s.hour) === h);
+      const covered = slots.filter((s) => Math.floor(s.hour) !== h && h > s.hour && h < s.hour + s.duration).length;
+      out.push({ hour: h, items, covered, free: Math.max(0, courts - items.length - covered) });
     }
     return out;
-  }, [pitch, slots]);
+  }, [pitch, slots, courts]);
 
   if (!pitch) {
     return (
@@ -92,7 +96,10 @@ export default function OwnerDashboard() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <ScreenHeader title={t('ownerDashboard')} right={<Row gap={6}><IconButton icon="card-outline" label={t('billingTitle')} onPress={() => router.push('/billing')} /><IconButton icon="trophy-outline" label={t('myTournaments')} onPress={() => router.push('/tournament/mine')} /></Row>} />
+      <ScreenHeader
+        title={staffOnly ? t('staffDashboard') : t('ownerDashboard')}
+        right={staffOnly ? undefined : <Row gap={6}><IconButton icon="card-outline" label={t('billingTitle')} onPress={() => router.push('/billing')} /><IconButton icon="trophy-outline" label={t('myTournaments')} onPress={() => router.push('/tournament/mine')} /></Row>}
+      />
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingTop: 0, gap: space.lg, paddingBottom: space.xxl }}>
         {mode === 'demo' && <Badge label={t('demoMode')} icon="information-circle" color={colors.info} bg={colors.infoSoft} />}
 
@@ -107,25 +114,31 @@ export default function OwnerDashboard() {
         )}
 
         <Txt v="h1">{l(pitch.name)}</Txt>
-        <Segmented
-          value={tab}
-          onChange={setTab}
-          options={[
-            { value: 'schedule', label: t('tabSchedule') },
-            { value: 'reports', label: t('tabReports') },
-            { value: 'settings', label: t('tabSettings') },
-          ]}
-        />
+        {courts > 1 && <Badge label={t('courtsN', { n: courts })} icon="grid-outline" />}
+        {staffOnly ? (
+          <Badge label={t('staffAccess')} icon="person-outline" color={colors.info} bg={colors.infoSoft} />
+        ) : (
+          <Segmented
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'schedule', label: t('tabSchedule') },
+              { value: 'reports', label: t('tabReports') },
+              { value: 'settings', label: t('tabSettings') },
+            ]}
+          />
+        )}
 
-        {tab === 'reports' && <Reports pitchId={pitch.id} />}
-        {tab === 'settings' && (
+        {tab === 'reports' && !staffOnly && <Reports pitchId={pitch.id} allIds={ownPitches.map((x) => x.id)} />}
+        {tab === 'settings' && !staffOnly && (
           <>
             <Button title={t('editPitchDetails')} kind="secondary" icon="images-outline" onPress={() => router.push(`/listing/edit/pitch/${pitch.id}`)} />
             <Settings pitchId={pitch.id} price={price} setPrice={setPrice} savePrice={savePrice} />
+            <CourtsAndStaff pitchId={pitch.id} courts={courts} />
           </>
         )}
 
-        {tab === 'schedule' && (
+        {(tab === 'schedule' || staffOnly) && (
         <>
         {/* Day */}
         <View style={{ marginHorizontal: -space.lg }}>
@@ -161,49 +174,58 @@ export default function OwnerDashboard() {
           {!slots ? (
             <ActivityIndicator color={colors.primary} style={{ padding: space.xl }} />
           ) : (
-            rows.map(({ hour, slot, covered }, i) => {
+            rows.map(({ hour, items, covered, free }, i) => {
               const past = hour < pastHour;
+              const blocked = items.find((x) => x.status === 'blocked');
               return (
                 <View key={hour}>
-                  <Row gap={space.md} style={{ paddingVertical: 12, opacity: past ? 0.45 : 1 }}>
-                    <Txt v="label" color={colors.textMuted} style={{ width: 74 }}>
+                  <Row gap={space.md} align="flex-start" style={{ paddingVertical: 12, opacity: past ? 0.45 : 1 }}>
+                    <Txt v="label" color={colors.textMuted} style={{ width: 74, paddingTop: 4 }}>
                       {formatHour(hour, lang)}
                     </Txt>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      {slot?.status === 'confirmed' || covered ? (
-                        <>
-                          <Row gap={6}>
+                    <View style={{ flex: 1, gap: 6 }}>
+                      {items.map((slot) =>
+                        slot.status === 'confirmed' ? (
+                          <Row key={slot.id} gap={6}>
                             <Ionicons name="person-circle" size={18} color={colors.primary} />
-                            <Txt v="bodyStrong" numberOfLines={1} style={{ flexShrink: 1 }}>
-                              {slot ? (slot.playerName ? t('bookedBy', { name: slot.playerName }) : t('appBooking')) : t('appBooking')}
-                            </Txt>
+                            <View style={{ flex: 1 }}>
+                              <Txt v="bodyStrong" numberOfLines={1}>
+                                {slot.playerName ? t('bookedBy', { name: slot.playerName }) : t('appBooking')}
+                              </Txt>
+                              <Txt v="tiny" color={slot.noShow ? colors.danger : colors.textMuted}>
+                                {courts > 1 ? `${t('courtN', { n: slot.court ?? 1 })} · ` : ''}
+                                {!staffOnly && slot.total > 0 ? money(slot.total) : ''}
+                                {slot.noShow ? ` · ${t('noShowMarked')}` : ''}
+                              </Txt>
+                            </View>
+                            {mode === 'live' && <IconButton icon="ellipsis-horizontal" label={t('bookingActions')} size={34} onPress={() => setActionSlot(slot)} />}
                           </Row>
-                          {slot && (
-                            <Txt v="tiny" color={slot.noShow ? colors.danger : colors.textMuted}>
-                              {money(slot.total)}
-                              {slot.noShow ? ` · ${t('noShowMarked')}` : ''}
-                            </Txt>
+                        ) : (
+                          <Row key={slot.id} gap={6}>
+                            <Badge label={courts > 1 ? `${t('blocked')} · ${t('courtN', { n: slot.court ?? 1 })}` : t('blocked')} icon="lock-closed" color={colors.danger} bg={colors.dangerSoft} />
+                            <View style={{ flex: 1 }} />
+                            {!past && (
+                              <Button title={t('unblockSlot')} small kind="secondary" icon="lock-open" loading={busyHour === hour} onPress={() => toggle(hour, slot)} />
+                            )}
+                          </Row>
+                        ),
+                      )}
+                      {covered > 0 && items.length === 0 && (
+                        <Row gap={6}>
+                          <Ionicons name="person-circle" size={18} color={colors.primary} />
+                          <Txt v="bodyStrong">{t('appBooking')}</Txt>
+                        </Row>
+                      )}
+                      {free > 0 && (
+                        <Row gap={6}>
+                          <Badge label={courts > 1 ? t('freeCourts', { n: free, total: courts }) : t('free')} icon="ellipse-outline" color={colors.success} bg={colors.successSoft} />
+                          <View style={{ flex: 1 }} />
+                          {!past && (
+                            <Button title={t('blockSlot')} small kind="ghost" icon="lock-closed" loading={busyHour === hour && !blocked} onPress={() => toggle(hour)} />
                           )}
-                        </>
-                      ) : slot?.status === 'blocked' ? (
-                        <Badge label={t('blocked')} icon="lock-closed" color={colors.danger} bg={colors.dangerSoft} />
-                      ) : (
-                        <Badge label={t('free')} icon="ellipse-outline" color={colors.success} bg={colors.successSoft} />
+                        </Row>
                       )}
                     </View>
-                    {slot?.status === 'confirmed' && mode === 'live' && slot.total > 0 && (
-                      <IconButton icon="ellipsis-horizontal" label={t('bookingActions')} size={36} onPress={() => setActionSlot(slot)} />
-                    )}
-                    {!past && !covered && slot?.status !== 'confirmed' && (
-                      <Button
-                        title={slot ? t('unblockSlot') : t('blockSlot')}
-                        small
-                        kind={slot ? 'secondary' : 'ghost'}
-                        icon={slot ? 'lock-open' : 'lock-closed'}
-                        loading={busyHour === hour}
-                        onPress={() => toggle(hour, slot)}
-                      />
-                    )}
                   </Row>
                   {i < rows.length - 1 && <Divider />}
                 </View>
@@ -264,29 +286,57 @@ export default function OwnerDashboard() {
   );
 }
 
-function Reports({ pitchId }: { pitchId: string }) {
-  const { t, lang, money, ownerReport, getPitch } = useApp();
+function Reports({ pitchId, allIds }: { pitchId: string; allIds: string[] }) {
+  const { t, l, lang, money, ownerReport, getPitch } = useApp();
   const [days, setDays] = useState<7 | 30>(7);
+  const [scope, setScope] = useState<'one' | 'all'>('one');
   const [rows, setRows] = useState<ReportDay[] | null>(null);
+  const [perPitch, setPerPitch] = useState<{ id: string; revenue: number; bookings: number; occupancy: number }[]>([]);
+  const ids = scope === 'all' ? allIds : [pitchId];
   const pitch = getPitch(pitchId);
   useEffect(() => {
     let alive = true;
     setRows(null);
-    ownerReport(pitchId, days).then((r) => alive && setRows(r)).catch(() => alive && setRows([]));
+    Promise.all(ids.map((id) => ownerReport(id, days).then((r) => ({ id, r }))))
+      .then((list) => {
+        if (!alive) return;
+        // Sum every pitch day by day (one pitch = its own numbers).
+        const byDay = new Map<string, ReportDay>();
+        for (const { r } of list)
+          for (const d of r) {
+            const cur = byDay.get(d.dateISO) ?? { dateISO: d.dateISO, bookings: 0, hours: 0, revenue: 0 };
+            byDay.set(d.dateISO, { dateISO: d.dateISO, bookings: cur.bookings + d.bookings, hours: cur.hours + d.hours, revenue: cur.revenue + d.revenue });
+          }
+        setRows([...byDay.values()].sort((a, b) => a.dateISO.localeCompare(b.dateISO)));
+        setPerPitch(
+          list
+            .map(({ id, r }) => {
+              const p = getPitch(id);
+              const hrs = r.reduce((s, d) => s + d.hours, 0);
+              const cap = (p.openTo - p.openFrom) * (p.courts ?? 1) * (r.length || 1);
+              return { id, revenue: r.reduce((s, d) => s + d.revenue, 0), bookings: r.reduce((s, d) => s + d.bookings, 0), occupancy: cap ? Math.round((hrs / cap) * 100) : 0 };
+            })
+            .sort((a, b) => b.revenue - a.revenue),
+        );
+      })
+      .catch(() => alive && setRows([]));
     return () => {
       alive = false;
     };
-  }, [pitchId, days, ownerReport]);
+  }, [pitchId, days, scope, ownerReport, allIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const revenue = (rows ?? []).reduce((s, r) => s + r.revenue, 0);
   const bookings = (rows ?? []).reduce((s, r) => s + r.bookings, 0);
   const hours = (rows ?? []).reduce((s, r) => s + r.hours, 0);
-  const open = (pitch.openTo - pitch.openFrom) * (rows?.length || 1);
+  const open = ids.reduce((s, id) => { const p = getPitch(id); return s + (p.openTo - p.openFrom) * (p.courts ?? 1); }, 0) * (rows?.length || 1);
   const best = (rows ?? []).reduce<ReportDay | null>((b, r) => (!b || r.revenue > b.revenue ? r : b), null);
   const max = Math.max(1, ...(rows ?? []).map((r) => r.revenue));
 
   return (
     <>
+      {allIds.length > 1 && (
+        <Segmented<'one' | 'all'> value={scope} onChange={setScope} options={[{ value: 'one', label: l(pitch.name) }, { value: 'all', label: t('allPitches') }]} />
+      )}
       <Row gap={8}>
         <Chip label={t('last7')} selected={days === 7} onPress={() => setDays(7)} />
         <Chip label={t('last30')} selected={days === 30} onPress={() => setDays(30)} />
@@ -317,6 +367,21 @@ function Reports({ pitchId }: { pitchId: string }) {
               ))}
             </View>
           </Card>
+          {scope === 'all' && perPitch.length > 1 && (
+            <Card style={{ gap: space.sm }}>
+              <Txt v="h3">{t('comparePitches')}</Txt>
+              {perPitch.map((x, i) => (
+                <Row key={x.id} gap={space.sm}>
+                  <Txt v="label" style={{ width: 20 }}>{i + 1}</Txt>
+                  <View style={{ flex: 1 }}>
+                    <Txt v="bodyStrong" numberOfLines={1}>{l(getPitch(x.id).name)}</Txt>
+                    <Txt v="tiny" color={colors.textMuted}>{t('totalBookings')}: {x.bookings} · {t('avgOccupancy')}: {x.occupancy}%</Txt>
+                  </View>
+                  <Txt v="label" color={colors.success}>{money(x.revenue)}</Txt>
+                </Row>
+              ))}
+            </Card>
+          )}
           {best && best.revenue > 0 && (
             <Card>
               <Row justify="space-between">
@@ -396,6 +461,89 @@ function Settings({ pitchId, price, setPrice, savePrice }: { pitchId: string; pr
         </Row>
       </Card>
       <Button title={t('save')} icon="checkmark-circle" loading={saving} onPress={save} />
+    </>
+  );
+}
+
+/** Number of courts at the venue, and the staff who can run the schedule. */
+function CourtsAndStaff({ pitchId, courts }: { pitchId: string; courts: number }) {
+  const { t, l, getPitch, errText, mode, refresh } = useApp();
+  const toast = useToast();
+  const [n, setN] = useState(courts);
+  const [staff, setStaff] = useState<{ userId: string; name: string; avatarUrl?: string }[]>([]);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setN(courts), [courts]);
+  const loadStaff = useCallback(() => {
+    if (mode === 'live') api.staffList(pitchId).then(setStaff).catch(() => setStaff([]));
+  }, [mode, pitchId]);
+  useEffect(loadStaff, [loadStaff]);
+
+  const invite = async () => {
+    if (mode !== 'live') return toast(errText('live_only'), 'error');
+    try {
+      const code = await api.createStaffInvite(pitchId);
+      await Share.share({ message: t('staffInviteMessage', { pitch: l(getPitch(pitchId).name), code }) });
+    } catch (e) {
+      toast(errText(api.errorCode(e)), 'error');
+    }
+  };
+
+  return (
+    <>
+      <Card style={{ gap: space.sm }}>
+        <Txt v="h3">{t('courtsAtVenue')}</Txt>
+        <Txt v="caption" color={colors.textMuted}>{t('courtsHint')}</Txt>
+        <Stepper value={n} onChange={setN} min={1} max={20} format={(v) => t('courtsN', { n: v })} />
+        {n !== courts && (
+          <Button
+            title={t('save')}
+            small
+            loading={busy}
+            onPress={async () => {
+              if (mode !== 'live') return toast(errText('live_only'), 'error');
+              setBusy(true);
+              try {
+                await api.setPitchCourts(pitchId, n);
+                await refresh();
+                toast(t('saved'), 'success');
+              } catch (e) {
+                toast(errText(api.errorCode(e)), 'error');
+              }
+              setBusy(false);
+            }}
+          />
+        )}
+      </Card>
+      <Card style={{ gap: space.sm }}>
+        <Row justify="space-between">
+          <Txt v="h3">{t('staff')}</Txt>
+          <Button title={t('addStaff')} small icon="person-add-outline" onPress={invite} />
+        </Row>
+        <Txt v="caption" color={colors.textMuted}>{t('staffHint')}</Txt>
+        {staff.length === 0 ? (
+          <Txt v="caption" color={colors.textFaint}>{t('noStaff')}</Txt>
+        ) : (
+          staff.map((m) => (
+            <Row key={m.userId} gap={space.sm}>
+              <Ionicons name="person-circle-outline" size={22} color={colors.primary} />
+              <Txt v="bodyStrong" style={{ flex: 1 }}>{m.name || t('player')}</Txt>
+              <Button
+                title={t('remove')}
+                small
+                kind="ghost"
+                onPress={async () => {
+                  try {
+                    await api.removeStaff(pitchId, m.userId);
+                    loadStaff();
+                  } catch (e) {
+                    toast(errText(api.errorCode(e)), 'error');
+                  }
+                }}
+              />
+            </Row>
+          ))
+        )}
+      </Card>
     </>
   );
 }
