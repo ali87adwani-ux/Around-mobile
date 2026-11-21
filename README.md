@@ -3,7 +3,7 @@
 A bilingual (Arabic / English) football community app built with **React Native + Expo**:
 book pitches, join or create pickup games, compete in tournaments, and track your stats.
 
-تطبيق مجتمع كرة قدم بلغتين (عربي / إنجليزي): احجز ملعبك، انضم لماتش أو اعمل ماتش، اشترك في البطولات وتابع إحصائياتك.
+تطبيق مجتمع كرة قدم بالكويت بلغتين (عربي باللهجة الكويتية / إنجليزي): احجز ملعبك، دش مباراة أو سوّ مباراة، شارك بالبطولات وتابع إحصائياتك.
 
 ![Arabic](docs/screenshots/arabic.png)
 ![English](docs/screenshots/english.png)

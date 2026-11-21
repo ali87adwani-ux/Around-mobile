@@ -53,7 +53,8 @@ export default function CreateMatch() {
   }, [pitch, booked, duration, dayOff, nowH, fromBooking, params, pitchId]);
 
   const maxPlayers = format * 2;
-  const perPlayer = Math.ceil((pitch.pricePerHour * mult[format] * duration) / maxPlayers / 5) * 5;
+  // Round each player's share up to the nearest quarter dinar.
+  const perPlayer = Math.ceil(((pitch.pricePerHour * mult[format] * duration) / maxPlayers) * 4) / 4;
 
   const publish = () => {
     if (hour == null) return;

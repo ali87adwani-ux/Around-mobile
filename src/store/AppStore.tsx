@@ -6,7 +6,7 @@ import type { Booking, Lang, Match, Pitch, Player, Profile, Tournament } from '@
 import { strings, type StringKey } from '@/i18n/strings';
 import { dateFromOffset, formatMoney, toISODate } from '@/i18n/format';
 
-const STORAGE_KEY = 'around.state.v1';
+const STORAGE_KEY = 'around.state.v2';
 
 interface PersistedState {
   lang: Lang;

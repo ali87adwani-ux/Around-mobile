@@ -66,7 +66,8 @@ export function formatDuration(hrs: number, lang: Lang) {
   return `${hrs} h`;
 }
 
+// Kuwaiti dinar: show up to 3 decimals (fils), dropping trailing zeros.
 export function formatMoney(n: number, lang: Lang) {
-  const s = Math.round(n).toLocaleString('en-US');
-  return lang === 'ar' ? `${s} ج.م` : `EGP ${s}`;
+  const s = (Math.round(n * 1000) / 1000).toLocaleString('en-US', { maximumFractionDigits: 3 });
+  return lang === 'ar' ? `${s} د.ك` : `KD ${s}`;
 }

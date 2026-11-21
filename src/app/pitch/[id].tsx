@@ -55,7 +55,7 @@ export default function PitchScreen() {
     return out;
   }, [pitch, duration, booked, dayOff, nowH]);
 
-  const price = Math.round(pitch.pricePerHour * sizeMultiplier[size] * duration);
+  const price = Math.round(pitch.pricePerHour * sizeMultiplier[size] * duration * 2) / 2;
 
   const confirm = () => {
     if (hour == null) return;
