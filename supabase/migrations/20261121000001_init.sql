@@ -165,7 +165,7 @@ create policy "owners update their pitches" on public.pitches
   for update to authenticated using (owner_id = (select auth.uid())) with check (owner_id = (select auth.uid()));
 -- Owners may change price and opening hours only.
 revoke update on public.pitches from authenticated, anon;
-grant update (price_per_hour, open_from, open_to, active) on public.pitches to authenticated;
+grant update (price_per_hour, open_from, open_to, active, amenities) on public.pitches to authenticated;
 
 create policy "players see their bookings, owners see bookings on their pitches" on public.bookings
   for select to authenticated using (

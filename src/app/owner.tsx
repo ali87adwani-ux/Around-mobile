@@ -3,13 +3,17 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { Badge, Button, Card, Chip, Divider, EmptyState, HScroll, IconButton, Row, Stat, Tap, Txt, haptic } from '@/components/ui';
-import { dateFromOffset, formatHour, toISODate, weekdayShort } from '@/i18n/format';
+import { Badge, Button, Card, Chip, Divider, EmptyState, HScroll, IconButton, Row, Segmented, Stat, Tap, Txt, haptic, type IconName } from '@/components/ui';
+import { Stepper } from '@/components/academy';
+import type { Amenity } from '@/data/types';
+import type { ReportDay } from '@/lib/api';
+import { dateFromOffset, formatDay, formatHour, fromISODate, toISODate, weekdayShort } from '@/i18n/format';
 import { useApp, type OwnerSlot } from '@/store/AppStore';
 import { colors, radius, space } from '@/theme';
 
 export default function OwnerDashboard() {
   const { t, l, lang, money, ownerPitches, ownerDay, ownerBlock, ownerUnblock, ownerUpdatePrice, errText, mode } = useApp();
+  const [tab, setTab] = useState<'schedule' | 'reports' | 'settings'>('schedule');
   const toast = useToast();
   const [pitchId, setPitchId] = useState(ownerPitches[0]?.id);
   const pitch = ownerPitches.find((p) => p.id === pitchId) ?? ownerPitches[0];
@@ -99,7 +103,21 @@ export default function OwnerDashboard() {
         )}
 
         <Txt v="h1">{l(pitch.name)}</Txt>
+        <Segmented
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'schedule', label: t('tabSchedule') },
+            { value: 'reports', label: t('tabReports') },
+            { value: 'settings', label: t('tabSettings') },
+          ]}
+        />
 
+        {tab === 'reports' && <Reports pitchId={pitch.id} />}
+        {tab === 'settings' && <Settings pitchId={pitch.id} price={price} setPrice={setPrice} savePrice={savePrice} />}
+
+        {tab === 'schedule' && (
+        <>
         {/* Day */}
         <View style={{ marginHorizontal: -space.lg }}>
           <HScroll gap={8}>
@@ -127,19 +145,6 @@ export default function OwnerDashboard() {
             <Stat icon="cash" value={money(revenue)} label={t('revenue')} color={colors.success} />
             <Stat icon="pie-chart" value={`${Math.round((usedHours / openHours) * 100)}%`} label={t('occupancy')} color={colors.info} />
           </Row>
-        </Card>
-
-        {/* Price */}
-        <Card style={{ gap: space.md }}>
-          <Txt v="h3">{t('pricePerHour')}</Txt>
-          <Row gap={space.md}>
-            <IconButton icon="remove" label="decrease" bg={colors.surfaceMuted} onPress={() => setPrice((p) => Math.max(1, Math.round((p - 0.5) * 2) / 2))} />
-            <Txt v="h1" center style={{ flex: 1 }} color={colors.primary}>
-              {money(price)}
-            </Txt>
-            <IconButton icon="add" label="increase" bg={colors.surfaceMuted} onPress={() => setPrice((p) => Math.round((p + 0.5) * 2) / 2)} />
-          </Row>
-          <Button title={t('save')} small kind="secondary" disabled={price === pitch.pricePerHour} onPress={savePrice} />
         </Card>
 
         {/* Schedule */}
@@ -193,7 +198,144 @@ export default function OwnerDashboard() {
             })
           )}
         </Card>
+        </>
+        )}
       </ScrollView>
     </View>
+  );
+}
+
+function Reports({ pitchId }: { pitchId: string }) {
+  const { t, lang, money, ownerReport, getPitch } = useApp();
+  const [days, setDays] = useState<7 | 30>(7);
+  const [rows, setRows] = useState<ReportDay[] | null>(null);
+  const pitch = getPitch(pitchId);
+  useEffect(() => {
+    let alive = true;
+    setRows(null);
+    ownerReport(pitchId, days).then((r) => alive && setRows(r)).catch(() => alive && setRows([]));
+    return () => {
+      alive = false;
+    };
+  }, [pitchId, days, ownerReport]);
+
+  const revenue = (rows ?? []).reduce((s, r) => s + r.revenue, 0);
+  const bookings = (rows ?? []).reduce((s, r) => s + r.bookings, 0);
+  const hours = (rows ?? []).reduce((s, r) => s + r.hours, 0);
+  const open = (pitch.openTo - pitch.openFrom) * (rows?.length || 1);
+  const best = (rows ?? []).reduce<ReportDay | null>((b, r) => (!b || r.revenue > b.revenue ? r : b), null);
+  const max = Math.max(1, ...(rows ?? []).map((r) => r.revenue));
+
+  return (
+    <>
+      <Row gap={8}>
+        <Chip label={t('last7')} selected={days === 7} onPress={() => setDays(7)} />
+        <Chip label={t('last30')} selected={days === 30} onPress={() => setDays(30)} />
+      </Row>
+      {!rows ? (
+        <ActivityIndicator color={colors.primary} style={{ padding: space.xl }} />
+      ) : (
+        <>
+          <Card>
+            <Row>
+              <Stat icon="cash" value={money(revenue)} label={t('totalRevenue')} color={colors.success} />
+              <Stat icon="calendar" value={bookings} label={t('totalBookings')} />
+              <Stat icon="pie-chart" value={`${Math.round((hours / open) * 100)}%`} label={t('avgOccupancy')} color={colors.info} />
+            </Row>
+          </Card>
+          <Card style={{ gap: space.md }}>
+            <Txt v="h3">{t('revenuePerDay')}</Txt>
+            <View style={{ flexDirection: lang === 'ar' ? 'row-reverse' : 'row', alignItems: 'flex-end', height: 140, gap: days === 7 ? 8 : 2 }}>
+              {rows.map((r, i) => (
+                <View key={r.dateISO} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
+                  <View style={{ width: days === 7 ? '70%' : '100%', height: Math.max(3, (r.revenue / max) * 110), borderRadius: 4, backgroundColor: i === rows.length - 1 ? colors.primary : colors.accent }} />
+                  {days === 7 && (
+                    <Txt v="tiny" color={colors.textMuted}>
+                      {fromISODate(r.dateISO).getDate()}
+                    </Txt>
+                  )}
+                </View>
+              ))}
+            </View>
+          </Card>
+          {best && best.revenue > 0 && (
+            <Card>
+              <Row justify="space-between">
+                <Row gap={8}>
+                  <Ionicons name="trophy" size={18} color={colors.warning} />
+                  <Txt v="bodyStrong">{t('bestDay')}</Txt>
+                </Row>
+                <Txt v="caption" color={colors.textMuted}>
+                  {formatDay(fromISODate(best.dateISO), lang, { today: t('today'), tomorrow: t('tomorrow') })} · {money(best.revenue)}
+                </Txt>
+              </Row>
+              <Txt v="tiny" color={colors.textMuted} style={{ marginTop: 6 }}>
+                {t('hoursBooked')}: {hours}
+              </Txt>
+            </Card>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+const AMENITIES: { key: Amenity; icon: IconName }[] = [
+  { key: 'parking', icon: 'car-outline' },
+  { key: 'showers', icon: 'water-outline' },
+  { key: 'lights', icon: 'bulb-outline' },
+  { key: 'cafe', icon: 'cafe-outline' },
+  { key: 'changing', icon: 'shirt-outline' },
+  { key: 'balls', icon: 'football-outline' },
+  { key: 'wifi', icon: 'wifi-outline' },
+];
+
+function Settings({ pitchId, price, setPrice, savePrice }: { pitchId: string; price: number; setPrice: (fn: (p: number) => number) => void; savePrice: () => Promise<void> }) {
+  const { t, lang, money, getPitch, ownerUpdatePitch, errText } = useApp();
+  const toast = useToast();
+  const pitch = getPitch(pitchId);
+  const [openFrom, setOpenFrom] = useState(pitch.openFrom);
+  const [openTo, setOpenTo] = useState(pitch.openTo);
+  const [amenities, setAmenities] = useState<Amenity[]>(pitch.amenities);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    const r = await ownerUpdatePitch(pitchId, { openFrom, openTo, amenities });
+    if (r.ok && price !== pitch.pricePerHour) await savePrice();
+    setSaving(false);
+    toast(r.ok ? t('settingsSaved') : errText(r.error), r.ok ? 'success' : 'error');
+  };
+
+  return (
+    <>
+      <Card style={{ gap: space.md }}>
+        <Txt v="h3">{t('pricePerHour')}</Txt>
+        <Stepper value={price} onChange={(v) => setPrice(() => v)} min={1} max={500} step={0.5} format={money} />
+      </Card>
+      <Card style={{ gap: space.md }}>
+        <Txt v="h3">{t('openingHours')}</Txt>
+        <Row gap={space.md}>
+          <View style={{ flex: 1, gap: 6 }}>
+            <Txt v="label" color={colors.textMuted}>{t('opensAt')}</Txt>
+            <Stepper value={openFrom} onChange={(v) => setOpenFrom(Math.min(v, openTo - 1))} min={0} max={23} format={(v) => formatHour(v, lang)} />
+          </View>
+          <View style={{ flex: 1, gap: 6 }}>
+            <Txt v="label" color={colors.textMuted}>{t('closesAt')}</Txt>
+            <Stepper value={openTo} onChange={(v) => setOpenTo(Math.max(v, openFrom + 1))} min={1} max={24} format={(v) => formatHour(v, lang)} />
+          </View>
+        </Row>
+      </Card>
+      <Card style={{ gap: space.md }}>
+        <Txt v="h3">{t('amenities')}</Txt>
+        <Row gap={8} wrap>
+          {AMENITIES.map((a) => {
+            const on = amenities.includes(a.key);
+            return <Chip key={a.key} icon={a.icon} label={t(`amenity_${a.key}`)} selected={on} onPress={() => setAmenities(on ? amenities.filter((x) => x !== a.key) : [...amenities, a.key])} />;
+          })}
+        </Row>
+      </Card>
+      <Button title={t('save')} icon="checkmark-circle" loading={saving} onPress={save} />
+    </>
   );
 }

@@ -48,6 +48,7 @@ interface PersistedState {
   demoAdmin: boolean;
   demoPrices: Record<string, number>;
   demoPitchInactive: string[];
+  demoPitchEdits: Record<string, { openFrom?: number; openTo?: number; amenities?: Pitch['amenities'] }>;
   demoTournamentStatus: Record<string, Tournament['status']>;
   demoTournaments: Tournament[];
 }
@@ -79,6 +80,7 @@ const initial = (): PersistedState => ({
   demoAdmin: false,
   demoPrices: {},
   demoPitchInactive: [],
+  demoPitchEdits: {},
   demoTournamentStatus: {},
   demoTournaments: [],
 });
@@ -101,6 +103,7 @@ type Action =
   | { type: 'setDemoRole'; key: 'demoAcademy' | 'demoAdmin'; on: boolean }
   | { type: 'setDemoPrice'; pitchId: string; price: number }
   | { type: 'setDemoPitchActive'; pitchId: string; active: boolean }
+  | { type: 'editDemoPitch'; pitchId: string; edits: { openFrom?: number; openTo?: number; amenities?: Pitch['amenities'] } }
   | { type: 'setDemoTournamentStatus'; id: string; status: Tournament['status'] }
   | { type: 'addDemoTournament'; tournament: Tournament }
   | { type: 'signedOut' }
@@ -149,6 +152,8 @@ function reducer(state: State, a: Action): State {
       return { ...state, demoPrices: { ...state.demoPrices, [a.pitchId]: a.price } };
     case 'setDemoPitchActive':
       return { ...state, demoPitchInactive: a.active ? state.demoPitchInactive.filter((x) => x !== a.pitchId) : [...state.demoPitchInactive, a.pitchId] };
+    case 'editDemoPitch':
+      return { ...state, demoPitchEdits: { ...state.demoPitchEdits, [a.pitchId]: { ...state.demoPitchEdits[a.pitchId], ...a.edits } } };
     case 'setDemoTournamentStatus':
       return { ...state, demoTournamentStatus: { ...state.demoTournamentStatus, [a.id]: a.status } };
     case 'addDemoTournament':
@@ -229,6 +234,8 @@ interface Ctx {
   ownerBlock: (pitchId: string, dateISO: string, hour: number) => Promise<Result>;
   ownerUnblock: (slotId: string) => Promise<Result>;
   ownerUpdatePrice: (pitchId: string, price: number) => Promise<Result>;
+  ownerUpdatePitch: (pitchId: string, p: { openFrom?: number; openTo?: number; amenities?: Pitch['amenities'] }) => Promise<Result>;
+  ownerReport: (pitchId: string, days: number) => Promise<api.ReportDay[]>;
 }
 
 const AppContext = createContext<Ctx | null>(null);
@@ -346,8 +353,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   /** Every pitch including deactivated ones (admin). */
   const allPitches = useMemo(() => {
     if (live) return remote.pitches;
-    return seedPitches.map((p) => ({ ...p, active: !state.demoPitchInactive.includes(p.id), pricePerHour: state.demoPrices[p.id] ?? p.pricePerHour }));
-  }, [live, remote.pitches, state.demoPrices, state.demoPitchInactive]);
+    return seedPitches.map((p) => ({ ...p, ...state.demoPitchEdits[p.id], active: !state.demoPitchInactive.includes(p.id), pricePerHour: state.demoPrices[p.id] ?? p.pricePerHour }));
+  }, [live, remote.pitches, state.demoPrices, state.demoPitchInactive, state.demoPitchEdits]);
   const pitches = useMemo(() => allPitches.filter((p) => p.active !== false), [allPitches]);
 
   const allMatches = useMemo(() => (live ? remote.matches : [...state.createdMatches, ...seedMatches]), [live, remote.matches, state.createdMatches]);
@@ -646,6 +653,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           await api.ownerUnblock(slotId);
           return ok();
         }),
+      ownerUpdatePitch: (pitchId, p) =>
+        guard(async () => {
+          if (!live) {
+            dispatch({ type: 'editDemoPitch', pitchId, edits: p });
+            return ok();
+          }
+          await api.ownerUpdatePitch(pitchId, p);
+          await refresh();
+          return ok();
+        }),
+      ownerReport: async (pitchId, days) => {
+        if (live) return api.ownerReport(pitchId, days);
+        const p = pitches.find((x) => x.id === pitchId);
+        return Array.from({ length: days }, (_, i) => {
+          const offset = i - (days - 1);
+          const dateISO = toISODate(dateFromOffset(offset));
+          let hours = 0;
+          if (p) for (let h = p.openFrom; h < p.openTo; h++) if (hash(`${pitchId}${dateISO}${h}`) % 3 === 0) hours++;
+          for (const b of state.bookings) if (b.pitchId === pitchId && b.dateISO === dateISO && b.status === 'confirmed') hours += b.duration;
+          return { dateISO, bookings: Math.round(hours), hours, revenue: hours * (p?.pricePerHour ?? 0) };
+        });
+      },
       ownerUpdatePrice: (pitchId, price) =>
         guard(async () => {
           if (!live) {

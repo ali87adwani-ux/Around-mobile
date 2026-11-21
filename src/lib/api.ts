@@ -285,3 +285,21 @@ export async function removeAvatar(userId: string) {
   const { error } = await db().from('profiles').update({ avatar_url: null }).eq('id', userId);
   if (error) throw error;
 }
+
+export type ReportDay = { dateISO: string; bookings: number; hours: number; revenue: number };
+
+export async function ownerReport(pitchId: string, days: number): Promise<ReportDay[]> {
+  const { data, error } = await db().rpc('owner_report', { p_pitch: pitchId, p_days: days });
+  if (error) throw error;
+  return ((data ?? []) as Record<string, any>[]).map((r) => ({ dateISO: String(r.day).slice(0, 10), bookings: Number(r.bookings), hours: Number(r.hours), revenue: Number(r.revenue) }));
+}
+
+export async function ownerUpdatePitch(pitchId: string, p: { openFrom?: number; openTo?: number; amenities?: string[]; price?: number }) {
+  const row: Record<string, unknown> = {};
+  if (p.openFrom !== undefined) row.open_from = p.openFrom;
+  if (p.openTo !== undefined) row.open_to = p.openTo;
+  if (p.amenities !== undefined) row.amenities = p.amenities;
+  if (p.price !== undefined) row.price_per_hour = p.price;
+  const { error } = await db().from('pitches').update(row).eq('id', pitchId);
+  if (error) throw error;
+}

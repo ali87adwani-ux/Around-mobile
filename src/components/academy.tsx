@@ -103,7 +103,7 @@ export function Stepper({ value, onChange, min, max, step = 1, format }: { value
   return (
     <Row gap={space.sm} style={{ backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: 4 }}>
       <Button title="−" small kind="secondary" onPress={() => onChange(Math.max(min, +(value - step).toFixed(3)))} style={{ width: 44, paddingHorizontal: 0 }} />
-      <Txt v="h3" center style={{ flex: 1 }}>
+      <Txt v="bodyStrong" center numberOfLines={1} adjustsFontSizeToFit style={{ flex: 1 }}>
         {format ? format(value) : value}
       </Txt>
       <Button title="+" small kind="secondary" onPress={() => onChange(Math.min(max, +(value + step).toFixed(3)))} style={{ width: 44, paddingHorizontal: 0 }} />
