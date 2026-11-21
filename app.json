@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aldawri.app",
@@ -46,6 +46,12 @@
         {
           "photosPermission": "الدوري يحتاج الوصول لصورك عشان تضيف صورة حسابك. Al Dawri uses your photos to set your profile picture.",
           "cameraPermission": "الدوري يحتاج الكاميرا عشان تصوّر صورة حسابك. Al Dawri uses the camera to take your profile picture."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0B2E6F"
         }
       ]
     ],

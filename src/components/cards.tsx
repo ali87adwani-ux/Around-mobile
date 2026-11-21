@@ -22,7 +22,7 @@ export function FavButton({ id, size = 36 }: { id: string; size?: number }) {
       accessibilityState={{ selected: fav }}
       style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' }}
     >
-      <Ionicons name={fav ? 'heart' : 'heart-outline'} size={size * 0.52} color={fav ? colors.danger : colors.text} />
+      <Ionicons name={fav ? 'heart' : 'heart-outline'} size={size * 0.52} color={fav ? colors.danger : '#0D1B33'} />
     </Tap>
   );
 }

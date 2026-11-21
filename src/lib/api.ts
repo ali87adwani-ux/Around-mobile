@@ -59,11 +59,11 @@ export async function fetchPitches(): Promise<Pitch[]> {
 }
 
 export async function fetchMatches(): Promise<{ matches: Match[]; playerIds: string[] }> {
-  const since = new Date(Date.now() - 3 * 3600000).toISOString();
+  const since = new Date(Date.now() - 3 * 86400000).toISOString();
   const { data, error } = await db()
     .from('matches')
     .select('*, match_players(user_id, joined_at)')
-    .eq('status', 'open')
+    .in('status', ['open', 'played'])
     .gte('starts_at', since)
     .order('starts_at');
   if (error) throw error;

@@ -137,15 +137,15 @@ export function Tap({ style, onPress, haptics = true, scale = 0.97, children, ..
 }
 
 type BtnKind = 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent' | 'dark' | 'light';
-const btnColors: Record<BtnKind, { bg: string; fg: string; border?: string }> = {
+const btnColors = (): Record<BtnKind, { bg: string; fg: string; border?: string }> => ({
   primary: { bg: colors.primary, fg: colors.white },
   accent: { bg: colors.accent, fg: colors.primaryDark },
   secondary: { bg: colors.primarySoft, fg: colors.primary },
   ghost: { bg: 'transparent', fg: colors.text, border: colors.border },
   danger: { bg: colors.dangerSoft, fg: colors.danger },
-  dark: { bg: colors.text, fg: colors.white },
-  light: { bg: colors.white, fg: colors.primary },
-};
+  dark: { bg: colors.inverse, fg: colors.onInverse },
+  light: { bg: colors.white, fg: '#0B2E6F' },
+});
 
 export function Button({
   title,
@@ -166,7 +166,7 @@ export function Button({
   small?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  const c = btnColors[kind];
+  const c = btnColors()[kind];
   const { isRTL } = useApp();
   return (
     <Tap
@@ -243,13 +243,13 @@ export function Chip({ label, selected, onPress, icon }: { label: string; select
         paddingHorizontal: 14,
         height: 38,
         borderRadius: radius.pill,
-        backgroundColor: selected ? colors.text : colors.card,
+        backgroundColor: selected ? colors.inverse : colors.card,
         borderWidth: 1,
-        borderColor: selected ? colors.text : colors.border,
+        borderColor: selected ? colors.inverse : colors.border,
       }}
     >
-      {icon && <Ionicons name={icon} size={15} color={selected ? colors.white : colors.textMuted} />}
-      <Txt v="label" color={selected ? colors.white : colors.text}>
+      {icon && <Ionicons name={icon} size={15} color={selected ? colors.onInverse : colors.textMuted} />}
+      <Txt v="label" color={selected ? colors.onInverse : colors.text}>
         {label}
       </Txt>
     </Tap>

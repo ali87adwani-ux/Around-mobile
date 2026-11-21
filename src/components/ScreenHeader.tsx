@@ -25,6 +25,7 @@ export function ScreenHeader({ title, right, transparent, light }: { title?: str
         <IconButton
           icon={d.backIcon}
           label="back"
+          color={light ? '#0D1B33' : colors.text}
           bg={light ? 'rgba(255,255,255,0.92)' : colors.card}
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
         />

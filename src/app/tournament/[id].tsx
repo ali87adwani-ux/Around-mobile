@@ -7,10 +7,11 @@ import { StatusBar } from 'expo-status-bar';
 import { statusBadge } from '@/components/cards';
 import { Sheet, useToast } from '@/components/overlays';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { Button, Card, Divider, EmptyState, Field, PitchArt, Row, Segmented, Stat, Tap, Txt, useDir } from '@/components/ui';
+import { Button, Card, Chip, Divider, EmptyState, Field, PitchArt, Row, Segmented, Stat, Tap, Txt, useDir } from '@/components/ui';
 import type { TeamRow } from '@/data/types';
 import { dateFromOffset, formatDay, formatHour } from '@/i18n/format';
 import { useApp } from '@/store/AppStore';
+import { useEngagement } from '@/store/engagement';
 import { colors, radius, shadow, space } from '@/theme';
 
 const pts = (r: TeamRow) => r.won * 3 + r.drawn;
@@ -19,6 +20,7 @@ export default function TournamentScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, l, lang, money, getTournament, getPitch, registrationFor, registerTeam, errText, meId } = useApp();
   const [saving, setSaving] = useState(false);
+  const { teams: myTeams } = useEngagement();
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const d = useDir();
@@ -195,8 +197,8 @@ export default function TournamentScreen() {
                             {l(h.name)}
                           </Txt>
                         </Row>
-                        <View style={{ minWidth: 64, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.sm, backgroundColor: f.score ? colors.text : colors.primarySoft }}>
-                          <Txt v="h3" center color={f.score ? colors.white : colors.primary}>
+                        <View style={{ minWidth: 64, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.sm, backgroundColor: f.score ? colors.inverse : colors.primarySoft }}>
+                          <Txt v="h3" center color={f.score ? colors.onInverse : colors.primary}>
                             {f.score ? (d.isRTL ? `${f.score[1]} - ${f.score[0]}` : `${f.score[0]} - ${f.score[1]}`) : t('vs')}
                           </Txt>
                         </View>
@@ -227,6 +229,16 @@ export default function TournamentScreen() {
 
       <Sheet visible={sheet} onClose={() => setSheet(false)} title={t('registerTitle')}>
         <View style={{ gap: space.lg }}>
+          {myTeams.length > 0 && (
+            <View style={{ gap: 6 }}>
+              <Txt v="label" color={colors.textMuted}>{t('useTeam')}</Txt>
+              <Row gap={8} wrap>
+                {myTeams.map((tm) => (
+                  <Chip key={tm.id} label={tm.name} icon="shirt-outline" selected={teamName === tm.name} onPress={() => setTeamName(tm.name)} />
+                ))}
+              </Row>
+            </View>
+          )}
           <Field label={t('teamName')} placeholder={t('teamNamePlaceholder')} value={teamName} onChangeText={setTeamName} autoFocus error={tried && !teamName.trim() ? t('required') : undefined} onSubmitEditing={register} />
           <Row justify="space-between">
             <Txt v="h3">{t('entryFee')}</Txt>

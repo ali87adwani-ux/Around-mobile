@@ -9,6 +9,7 @@ import { AppProvider, useApp } from '@/store/AppStore';
 import { SupportProvider } from '@/store/support';
 import { AcademiesProvider } from '@/store/academies';
 import { AdminProvider } from '@/store/admin';
+import { EngagementProvider } from '@/store/engagement';
 import { colors } from '@/theme';
 
 // Layout direction is handled by the app itself (per selected language),
@@ -21,7 +22,7 @@ if (Platform.OS !== 'web') {
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootNavigator() {
-  const { ready: storeReady, onboarded } = useApp();
+  const { ready: storeReady, onboarded, themeName } = useApp();
   const [fontsLoaded] = useFonts({ IBMPlexSansArabic_400Regular, IBMPlexSansArabic_500Medium, IBMPlexSansArabic_600SemiBold, IBMPlexSansArabic_700Bold });
   const ready = fontsLoaded && storeReady;
 
@@ -33,7 +34,7 @@ function RootNavigator() {
 
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={themeName === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right' }}>
         <Stack.Protected guard={!onboarded}>
           <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
@@ -55,6 +56,8 @@ function RootNavigator() {
           <Stack.Screen name="academy/[id]" />
           <Stack.Screen name="academy-admin" />
           <Stack.Screen name="admin" />
+          <Stack.Screen name="rewards" />
+          <Stack.Screen name="teams" />
         </Stack.Protected>
       </Stack>
     </>
@@ -68,9 +71,11 @@ export default function RootLayout() {
         <SupportProvider>
           <AcademiesProvider>
             <AdminProvider>
-              <ToastProvider>
-                <RootNavigator />
-              </ToastProvider>
+              <EngagementProvider>
+                <ToastProvider>
+                  <RootNavigator />
+                </ToastProvider>
+              </EngagementProvider>
             </AdminProvider>
           </AcademiesProvider>
         </SupportProvider>

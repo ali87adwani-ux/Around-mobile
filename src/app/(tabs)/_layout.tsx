@@ -61,6 +61,7 @@ function TabBar({ state, navigateToTab }: BottomTabBarProps) {
 }
 
 export default function TabsLayout() {
+  useApp(); // re-render on theme/language change so scene colors update
   return (
     <Tabs tabBar={(p) => <TabBar {...p} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.bg } }}>
       <Tabs.Screen name="index" />

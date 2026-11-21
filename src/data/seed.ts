@@ -153,8 +153,9 @@ export const players: Player[] = rawPlayers.map(([ar, en, position, level, match
 }));
 
 export const matches: Match[] = [
+  { id: 'm0', pitchId: 'p1', dayOffset: -1, hour: 21, duration: 1, format: 5, level: 'intermediate', pricePerPlayer: 2.5, maxPlayers: 10, playerIds: ['me', 'u1', 'u2', 'u3', 'u4', 'u5', 'u7', 'u8', 'u10', 'u12'], organizerId: 'me' },
   { id: 'm1', pitchId: 'p1', dayOffset: 0, hour: 21, duration: 1.5, format: 5, level: 'intermediate', pricePerPlayer: 2.5, maxPlayers: 10, playerIds: ['u1', 'u2', 'u3', 'u4', 'u5', 'u7', 'u8'], organizerId: 'u2' },
-  { id: 'm2', pitchId: 'p3', dayOffset: 0, hour: 23, duration: 1, format: 5, level: 'advanced', pricePerPlayer: 3.5, maxPlayers: 10, playerIds: ['u1', 'u7', 'u10', 'u12', 'u2', 'u8', 'u4', 'u5', 'u3'], organizerId: 'u12' },
+  { id: 'm2', pitchId: 'p3', dayOffset: 0, hour: 23, duration: 1, format: 5, level: 'advanced', pricePerPlayer: 3.5, maxPlayers: 10, playerIds: ['u1', 'u7', 'u10', 'u12', 'u2', 'u8', 'u4', 'u5', 'u3', 'u6'], organizerId: 'u12' },
   { id: 'm3', pitchId: 'p2', dayOffset: 1, hour: 20, duration: 1, format: 5, level: 'beginner', pricePerPlayer: 1.5, maxPlayers: 10, playerIds: ['u6', 'u9', 'u11'], organizerId: 'u6' },
   { id: 'm4', pitchId: 'p4', dayOffset: 2, hour: 19, duration: 2, format: 7, level: 'intermediate', pricePerPlayer: 5, maxPlayers: 14, playerIds: ['u2', 'u3', 'u4', 'u7', 'u8', 'u10', 'u12', 'u5'], organizerId: 'u7' },
   { id: 'm5', pitchId: 'p6', dayOffset: 3, hour: 22, duration: 1, format: 5, level: 'intermediate', pricePerPlayer: 3, maxPlayers: 10, playerIds: ['u5', 'u8', 'u9', 'u1'], organizerId: 'u5' },

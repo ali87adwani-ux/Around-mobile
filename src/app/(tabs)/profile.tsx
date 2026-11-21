@@ -8,11 +8,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PitchCard } from '@/components/cards';
 import { ConfirmSheet, Sheet, useToast } from '@/components/overlays';
 import { PlayerCard } from '@/components/PlayerCard';
-import { Button, Card, Chip, Divider, Field, HScroll, Row, Segmented, Tap, Txt, useDir, type IconName } from '@/components/ui';
+import { Button, Card, Chip, Divider, Field, HScroll, Progress, Row, Segmented, Tap, Txt, useDir, type IconName } from '@/components/ui';
 import type { Lang, Level, Position } from '@/data/types';
 import { useApp } from '@/store/AppStore';
 import { useSupport } from '@/store/support';
 import { useAcademies } from '@/store/academies';
+import { useEngagement } from '@/store/engagement';
+import { remindersSupported } from '@/lib/reminders';
 import { colors, radius, space } from '@/theme';
 
 export default function Profile() {
@@ -51,6 +53,7 @@ export default function Profile() {
   const joinedCount = allMatches.filter((m) => isJoined(m.id)).length;
   const { tickets } = useSupport();
   const { ownedAcademies } = useAcademies();
+  const eng = useEngagement();
   const openTickets = tickets.filter((tk) => tk.status === 'answered').length;
   const favs = pitches.filter((p) => state.favorites.includes(p.id));
 
@@ -83,7 +86,30 @@ export default function Profile() {
       </Row>
 
       <View style={{ paddingHorizontal: space.lg }}>
-        <PlayerCard player={me} displayName={state.profile.name || undefined} onEditPhoto={() => setPhotoSheet(true)} />
+        <PlayerCard player={me} displayName={state.profile.name || undefined} onEditPhoto={() => setPhotoSheet(true)} reliability={eng.stats.reliability} />
+      </View>
+
+      <View style={{ paddingHorizontal: space.lg }}>
+        <Card onPress={() => router.push('/rewards')} style={{ gap: space.sm }}>
+          <Row justify="space-between">
+            <Row gap={space.sm}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.warningSoft, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="medal" size={22} color={colors.warning} />
+              </View>
+              <View>
+                <Txt v="h2">
+                  {eng.stats.points} <Txt v="caption" color={colors.textMuted}>{t('points')}</Txt>
+                </Txt>
+                <Txt v="tiny" color={colors.textMuted}>
+                  {t(`tier_${eng.stats.tier}`)} ·{' '}
+                  {eng.stats.nextTier ? t('toNextTier', { n: eng.stats.nextTier.min - eng.stats.earned, tier: t(`tier_${eng.stats.nextTier.key}`) }) : t('topTier')}
+                </Txt>
+              </View>
+            </Row>
+            <Ionicons name={d.forward} size={18} color={colors.textFaint} />
+          </Row>
+          <Progress value={eng.stats.nextTier ? eng.stats.earned / eng.stats.nextTier.min : 1} color={colors.warning} />
+        </Card>
       </View>
 
       <View style={{ paddingHorizontal: space.lg }}>
@@ -93,6 +119,8 @@ export default function Profile() {
           <MenuItem icon="football-outline" label={t('myGames')} value={joinedCount ? String(joinedCount) : undefined} onPress={() => router.push('/matches')} />
           <Divider />
           <MenuItem icon="podium-outline" label={t('leaderboard')} onPress={() => router.push('/leaderboard')} />
+          <Divider />
+          <MenuItem icon="shirt-outline" label={t('teamsTitle')} value={eng.teams.length ? String(eng.teams.length) : undefined} onPress={() => router.push('/teams')} />
           <Divider />
           <MenuItem icon="school-outline" label={t('academies')} onPress={() => router.push('/academies')} />
           <Divider />
@@ -149,6 +177,33 @@ export default function Profile() {
             { value: 'en', label: 'English' },
           ]}
         />
+      </View>
+
+      <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
+        <Row gap={8}>
+          <Ionicons name="contrast" size={20} color={colors.primary} />
+          <Txt v="h3">{t('appearance')}</Txt>
+        </Row>
+        <Segmented<'light' | 'dark' | 'system'>
+          value={state.themeMode}
+          onChange={(v) => dispatch({ type: 'setTheme', mode: v })}
+          options={[
+            { value: 'light', label: t('themeLight') },
+            { value: 'dark', label: t('themeDark') },
+            { value: 'system', label: t('themeSystem') },
+          ]}
+        />
+        {remindersSupported && (
+          <Tap onPress={() => dispatch({ type: 'setReminders', on: !state.reminders })} scale={0.99}>
+            <Row gap={space.sm}>
+              <Ionicons name={state.reminders ? 'notifications' : 'notifications-off-outline'} size={20} color={colors.primary} />
+              <Txt v="bodyStrong" style={{ flex: 1 }}>
+                {t('remindersLabel')}
+              </Txt>
+              <Ionicons name={state.reminders ? 'toggle' : 'toggle-outline'} size={34} color={state.reminders ? colors.primary : colors.textFaint} />
+            </Row>
+          </Tap>
+        )}
       </View>
 
       <View style={{ gap: space.md }}>

@@ -42,7 +42,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           pointerEvents="none"
           style={{ position: 'absolute', left: space.lg, right: space.lg, top: insets.top + 8, transform: [{ translateY: y }], zIndex: 1000 }}
         >
-          <Row gap={10} style={{ backgroundColor: colors.text, borderRadius: radius.lg, paddingHorizontal: space.lg, paddingVertical: 14 }}>
+          <Row gap={10} style={{ backgroundColor: colors.primaryDeep, borderRadius: radius.lg, paddingHorizontal: space.lg, paddingVertical: 14 }}>
             <Ionicons name={icon[toast.kind]} size={22} color={tint[toast.kind]} />
             <Txt v="bodyStrong" color={colors.white} style={{ flex: 1 }}>
               {toast.msg}

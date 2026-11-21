@@ -18,6 +18,7 @@ export default function Matches() {
   const [day, setDay] = useState<number | null>(null);
   const [level, setLevel] = useState<Level | null>(null);
 
+  const past = useMemo(() => allMatches.filter((m) => m.dayOffset < 0 && isJoined(m.id)).sort((a, b) => b.dayOffset - a.dayOffset), [allMatches, isJoined]);
   const list = useMemo(() => {
     return allMatches
       .filter((m) => m.dayOffset >= 0)
@@ -59,6 +60,16 @@ export default function Matches() {
         data={list}
         keyExtractor={(m) => m.id}
         renderItem={({ item }) => <MatchCard match={item} />}
+        ListFooterComponent={
+          tab === 'mine' && past.length > 0 ? (
+            <View style={{ gap: space.md, marginTop: space.md }}>
+              <Txt v="h3">{t('pastGames')}</Txt>
+              {past.map((m) => (
+                <MatchCard key={m.id} match={m} />
+              ))}
+            </View>
+          ) : undefined
+        }
         contentContainerStyle={{ padding: space.lg, paddingTop: space.xs, gap: space.md, paddingBottom: 110 }}
         ListEmptyComponent={
           tab === 'mine' ? (

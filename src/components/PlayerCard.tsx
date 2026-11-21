@@ -7,7 +7,7 @@ import { colors, radius, space } from '@/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Row, Tap, Txt } from './ui';
 
-export function PlayerCard({ player, displayName, onEditPhoto }: { player: Player; displayName?: string; onEditPhoto?: () => void }) {
+export function PlayerCard({ player, displayName, onEditPhoto, reliability }: { player: Player; displayName?: string; onEditPhoto?: () => void; reliability?: number }) {
   const { t, l } = useApp();
   const s = player.stats;
   const items: [string | number, string][] = [
@@ -35,6 +35,14 @@ export function PlayerCard({ player, displayName, onEditPhoto }: { player: Playe
           <Txt v="caption" color="rgba(255,255,255,0.8)">
             {t(`pos_${player.position}`)} · {t(`level_${player.level}`)}
           </Txt>
+          {reliability != null && (
+            <Row gap={4} style={{ marginTop: 4 }}>
+              <Ionicons name="shield-checkmark" size={13} color={colors.accent} />
+              <Txt v="tiny" color={colors.accent}>
+                {t('reliability')} {reliability}%
+              </Txt>
+            </Row>
+          )}
         </View>
         <View style={{ alignItems: 'center', backgroundColor: colors.accent, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 6 }}>
           <Txt v="h2" color={colors.primaryDark} center>

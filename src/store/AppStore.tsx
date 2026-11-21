@@ -10,12 +10,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { getLocales } from 'expo-localization';
 import * as WebBrowser from 'expo-web-browser';
-import { Platform } from 'react-native';
+import { Platform, useColorScheme } from 'react-native';
+import { applyTheme, type ThemeName } from '@/theme';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { ME_ID, seedReviews, matches as seedMatches, pitches as seedPitches, players as seedPlayers, tournaments as seedTournaments } from '@/data/seed';
 import type { Booking, Lang, Match, Pitch, Player, Profile, Review, Tournament } from '@/data/types';
 import { strings, type StringKey } from '@/i18n/strings';
-import { dateFromOffset, formatMoney, toISODate } from '@/i18n/format';
+import { dateFromOffset, formatHour, formatMoney, toISODate } from '@/i18n/format';
+import { cancelReminder, scheduleReminder } from '@/lib/reminders';
 import * as api from '@/lib/api';
 import type { OwnerSlot } from '@/lib/api';
 import { backendEnabled, supabase } from '@/lib/supabase';
@@ -52,6 +54,9 @@ interface PersistedState {
   demoTournamentStatus: Record<string, Tournament['status']>;
   demoTournaments: Tournament[];
   myReviews: Review[];
+  themeMode: 'light' | 'dark' | 'system';
+  reminders: boolean;
+  reminderIds: Record<string, string>;
 }
 
 interface State extends PersistedState {
@@ -85,6 +90,9 @@ const initial = (): PersistedState => ({
   demoTournamentStatus: {},
   demoTournaments: [],
   myReviews: [],
+  themeMode: 'system',
+  reminders: true,
+  reminderIds: {},
 });
 
 type Action =
@@ -109,6 +117,9 @@ type Action =
   | { type: 'setDemoTournamentStatus'; id: string; status: Tournament['status'] }
   | { type: 'addDemoTournament'; tournament: Tournament }
   | { type: 'addReview'; review: Review }
+  | { type: 'setTheme'; mode: 'light' | 'dark' | 'system' }
+  | { type: 'setReminders'; on: boolean }
+  | { type: 'setReminderId'; key: string; id?: string }
   | { type: 'signedOut' }
   | { type: 'reset' };
 
@@ -161,6 +172,16 @@ function reducer(state: State, a: Action): State {
       return { ...state, demoTournamentStatus: { ...state.demoTournamentStatus, [a.id]: a.status } };
     case 'addDemoTournament':
       return { ...state, demoTournaments: [a.tournament, ...state.demoTournaments] };
+    case 'setTheme':
+      return { ...state, themeMode: a.mode };
+    case 'setReminders':
+      return { ...state, reminders: a.on };
+    case 'setReminderId': {
+      const next = { ...state.reminderIds };
+      if (a.id) next[a.key] = a.id;
+      else delete next[a.key];
+      return { ...state, reminderIds: next };
+    }
     case 'addReview':
       return { ...state, myReviews: [a.review, ...state.myReviews.filter((r) => r.pitchId !== a.review.pitchId)] };
     case 'signedOut':
@@ -188,6 +209,7 @@ interface Ctx {
   signedIn: boolean;
   /** Local state loaded and (live mode) session checked. */
   ready: boolean;
+  themeName: ThemeName;
   /** Ready to show the main app (signed in with a player card). */
   onboarded: boolean;
   loading: boolean;
@@ -337,6 +359,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, [loadUser]);
 
+  /* ---------- theme ---------- */
+  const systemScheme = useColorScheme();
+  const themeName: ThemeName = state.themeMode === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : state.themeMode;
+  // Swap the palette before children render; every screen re-renders because the context value changes.
+  applyTheme(themeName);
+
   /* ---------- i18n ---------- */
   const lang = state.lang;
   const isRTL = lang === 'ar';
@@ -384,7 +412,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const players = live ? remote.players : seedPlayers;
 
   const isJoined = useCallback(
-    (id: string) => (live ? !!remote.matches.find((m) => m.id === id)?.playerIds.includes(meId) : state.joinedMatchIds.includes(id)),
+    (id: string) => (live ? !!remote.matches.find((m) => m.id === id)?.playerIds.includes(meId) : state.joinedMatchIds.includes(id) || !!seedMatches.find((m) => m.id === id)?.playerIds.includes(ME_ID)),
     [live, remote.matches, meId, state.joinedMatchIds],
   );
 
@@ -446,6 +474,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const getPlayer = (id: string): Player =>
       id === meId ? me : players.find((p) => p.id === id) ?? { ...(seedPlayers[0] as Player), id, name: { ar: 'لاعب', en: 'Player' }, color: api.colorFor(id) };
 
+    const remind = async (key: string, pitchId: string, dateISO: string, hour: number) => {
+      if (!state.reminders) return;
+      const p = pitches.find((x) => x.id === pitchId);
+      const id = await scheduleReminder(t('reminderTitle'), t('reminderBody', { pitch: p ? p.name[lang] : '', time: formatHour(hour, lang) }), dateISO, hour).catch(() => undefined);
+      if (id) dispatch({ type: 'setReminderId', key, id });
+    };
+    const unremind = (key: string) => {
+      cancelReminder(state.reminderIds[key]);
+      dispatch({ type: 'setReminderId', key });
+    };
+
     const guard = async (fn: () => Promise<Result>): Promise<Result> => {
       try {
         return await fn();
@@ -460,6 +499,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       mode: live ? 'live' : 'demo',
       signedIn: live ? !!userId : true,
       ready: state.hydrated && authChecked,
+      themeName,
       onboarded: live ? authChecked && !!userId && state.onboarded : state.onboarded,
       loading: loading || !authChecked,
       lang,
@@ -499,14 +539,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (!live) {
             const id = `b${Date.now()}`;
             dispatch({ type: 'addBooking', booking: { id, pitchId: p.pitchId, dateISO: p.dateISO, hour: p.hour, duration: p.duration, size: p.size as 5, total: p.total, status: 'confirmed', createdAt: Date.now() } });
+            remind(`b:${id}`, p.pitchId, p.dateISO, p.hour);
             return ok(id);
           }
           const row = await api.bookPitch(p);
+          remind(`b:${row.id}`, p.pitchId, p.dateISO, p.hour);
           await Promise.all([refresh(), loadBusy(p.pitchId, p.dateISO)]);
           return ok(row.id);
         }),
       cancelBooking: (id) =>
         guard(async () => {
+          unremind(`b:${id}`);
           if (!live) {
             dispatch({ type: 'cancelBooking', id });
             return ok();
@@ -526,11 +569,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             return ok(id);
           }
           const row = await api.createMatch(p);
+          remind(`m:${row.id}`, p.pitchId, toISODate(dateFromOffset(p.dayOffset)), p.hour);
           await refresh();
           return ok(row.id);
         }),
       joinMatch: (id) =>
         guard(async () => {
+          const jm = allMatches.find((m) => m.id === id);
+          if (jm) remind(`m:${id}`, jm.pitchId, toISODate(dateFromOffset(jm.dayOffset)), jm.hour);
           if (!live) {
             dispatch({ type: 'join', id });
             return ok();
@@ -541,6 +587,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }),
       leaveMatch: (id) =>
         guard(async () => {
+          unremind(`m:${id}`);
           if (!live) {
             dispatch({ type: 'leave', id });
             return ok();
@@ -723,7 +770,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return ok();
         }),
     };
-  }, [state, live, reviewCache, userId, role, authChecked, loading, lang, isRTL, t, l, money, errText, meId, me, pitches, allPitches, players, tournaments, allMatches, myBookings, isJoined, bookedHours, loadBusy, refresh, isOwner, ownerPitches]);
+  }, [state, themeName, live, reviewCache, userId, role, authChecked, loading, lang, isRTL, t, l, money, errText, meId, me, pitches, allPitches, players, tournaments, allMatches, myBookings, isJoined, bookedHours, loadBusy, refresh, isOwner, ownerPitches]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

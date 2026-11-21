@@ -12,16 +12,13 @@ book pitches, join or create pickup games, compete in tournaments, and track you
 
 ## Features | المميزات
 
-- **Onboarding**: language picker, intro slides, player card setup (position and level).
-- **Pitch booking**: search, sort (nearest / cheapest / top rated), filters (size, indoor, favorites), live slot
-  availability over 14 days, duration and pitch size, booking summary, confirmation, and cancellation.
-- **Pickup games**: discover by day and level, spots-left progress, visual lineup on a pitch, join / leave,
-  invite via share, and creating a game with an automatic per-player price split.
-- **Tournaments**: live, open and finished; standings table, fixtures and results, team registration.
-- **Profile**: FIFA-style player card, my bookings, my games, leaderboard (scorers / rating / MVPs),
-  favorite pitches, edit profile, and a language switch that applies instantly with no restart.
-- **UX**: full RTL layout in Arabic, Cairo font for both scripts, haptics, press animations, bottom sheets,
-  toasts, empty states, confirmation sheets for destructive actions, and data saved on the device.
+- **Players:** pitch booking with live availability, off-peak discounts and prayer times on the grid; governorate / indoor / air-conditioned filters; directions (Google Maps, Waze); reviews; pickup games with lineup, waitlist, results and MVP vote; tournaments; fixed teams with invite codes; points, tiers and rewards; reliability score; profile photo; reminders an hour before games; Arabic (Kuwaiti) and English; light and dark mode.
+- **Academies:** browse programs by age group and enroll a child.
+- **Pitch owners:** daily schedule with player names, block/unblock hours, 7/30-day revenue reports, price, opening hours and amenities.
+- **Academy owners:** students, monthly revenue and fill rate; add/edit/delete programs; manage each program's students.
+- **Super admin:** KPIs and chart, users and roles, pitches (show/hide, assign owner), bookings, tournaments, academies, support inbox, announcements.
+- **Support:** FAQ, WhatsApp contact, support requests with a chat thread.
+- **Backend:** Supabase (Postgres + RLS + server functions), phone OTP / Google sign-in. See [docs/BACKEND.md](docs/BACKEND.md). Without `.env` the app runs in demo mode.
 
 ## Run | التشغيل
 
