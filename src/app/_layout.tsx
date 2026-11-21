@@ -6,6 +6,7 @@ import { I18nManager, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastProvider } from '@/components/overlays';
 import { AppProvider, useApp } from '@/store/AppStore';
+import { SupportProvider } from '@/store/support';
 import { colors } from '@/theme';
 
 // Layout direction is handled by the app itself (per selected language),
@@ -45,6 +46,9 @@ function RootNavigator() {
           <Stack.Screen name="bookings" />
           <Stack.Screen name="leaderboard" />
           <Stack.Screen name="owner" />
+          <Stack.Screen name="support/index" />
+          <Stack.Screen name="support/new" />
+          <Stack.Screen name="support/[id]" />
         </Stack.Protected>
       </Stack>
     </>
@@ -55,9 +59,11 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AppProvider>
-        <ToastProvider>
-          <RootNavigator />
-        </ToastProvider>
+        <SupportProvider>
+          <ToastProvider>
+            <RootNavigator />
+          </ToastProvider>
+        </SupportProvider>
       </AppProvider>
     </SafeAreaProvider>
   );

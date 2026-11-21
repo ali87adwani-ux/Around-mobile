@@ -11,6 +11,7 @@ import { PlayerCard } from '@/components/PlayerCard';
 import { Button, Card, Chip, Divider, Field, HScroll, Row, Segmented, Tap, Txt, useDir, type IconName } from '@/components/ui';
 import type { Lang, Level, Position } from '@/data/types';
 import { useApp } from '@/store/AppStore';
+import { useSupport } from '@/store/support';
 import { colors, radius, space } from '@/theme';
 
 export default function Profile() {
@@ -47,6 +48,8 @@ export default function Profile() {
 
   const upcomingBookings = myBookings.filter((b) => b.status === 'confirmed').length;
   const joinedCount = allMatches.filter((m) => isJoined(m.id)).length;
+  const { tickets } = useSupport();
+  const openTickets = tickets.filter((tk) => tk.status === 'answered').length;
   const favs = pitches.filter((p) => state.favorites.includes(p.id));
 
   const MenuItem = ({ icon, label, value, onPress, color = colors.text }: { icon: IconName; label: string; value?: string; onPress: () => void; color?: string }) => (
@@ -88,6 +91,8 @@ export default function Profile() {
           <MenuItem icon="football-outline" label={t('myGames')} value={joinedCount ? String(joinedCount) : undefined} onPress={() => router.push('/matches')} />
           <Divider />
           <MenuItem icon="podium-outline" label={t('leaderboard')} onPress={() => router.push('/leaderboard')} />
+          <Divider />
+          <MenuItem icon="headset-outline" label={t('support')} value={openTickets ? String(openTickets) : undefined} onPress={() => router.push('/support')} />
           {isOwner && (
             <>
               <Divider />
