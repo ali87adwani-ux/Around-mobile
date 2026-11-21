@@ -13,7 +13,7 @@ import { Avatar, Card, HScroll, EmptyState, IconButton, PitchArt, Row, SectionHe
 import { dateFromOffset, formatDay, formatHour, fromISODate, offsetOf } from '@/i18n/format';
 import type { StringKey } from '@/i18n/strings';
 import { useApp } from '@/store/AppStore';
-import { matchPhase } from '@/lib/matchPhase';
+import { bookingPhase, matchPhase } from '@/lib/matchPhase';
 import { useNotifications } from '@/store/notifications';
 import { colors, fonts, radius, space } from '@/theme';
 
@@ -35,8 +35,8 @@ export default function Home() {
     const items: Upcoming[] = [];
     for (const b of myBookings) {
       if (b.status !== 'confirmed') continue;
+      if (bookingPhase(b) === 'ended') continue;
       const off = offsetOf(fromISODate(b.dateISO));
-      if (off < 0) continue;
       const p = getPitch(b.pitchId);
       items.push({
         key: b.id,

@@ -8,6 +8,7 @@ import { Badge, Button, Card, EmptyState, PitchArt, Row, Segmented, Txt } from '
 import { formatDay, formatDuration, formatHour, fromISODate, offsetOf } from '@/i18n/format';
 import { useApp } from '@/store/AppStore';
 import { useInviteFriends } from '@/store/inviteFriends';
+import { bookingPhase } from '@/lib/matchPhase';
 import { colors, space } from '@/theme';
 
 export default function Bookings() {
@@ -18,9 +19,10 @@ export default function Bookings() {
   const friends = useInviteFriends();
   const labels = { today: t('today'), tomorrow: t('tomorrow') };
 
-  const isUpcoming = (iso: string, status: string) => status === 'confirmed' && offsetOf(fromISODate(iso)) >= 0;
+  // A booking moves to "Past" as soon as its time is over, not at midnight.
+  const isUpcoming = (b: { dateISO: string; hour: number; duration: number; status: string }) => b.status === 'confirmed' && bookingPhase(b) !== 'ended';
   const list = myBookings
-    .filter((b) => (tab === 'upcoming' ? isUpcoming(b.dateISO, b.status) : !isUpcoming(b.dateISO, b.status)))
+    .filter((b) => (tab === 'upcoming' ? isUpcoming(b) : !isUpcoming(b)))
     .sort((a, b) => (a.dateISO + String(a.hour).padStart(2, '0')).localeCompare(b.dateISO + String(b.hour).padStart(2, '0')) * (tab === 'upcoming' ? 1 : -1));
 
   return (
@@ -45,6 +47,7 @@ export default function Bookings() {
         renderItem={({ item: b }) => {
           const p = getPitch(b.pitchId);
           const cancelled = b.status === 'cancelled';
+          const phase = bookingPhase(b);
           return (
             <Card style={{ gap: space.md, opacity: cancelled ? 0.65 : 1 }} onPress={() => router.push(`/pitch/${p.id}`)}>
               <Row gap={space.md}>
@@ -68,10 +71,16 @@ export default function Bookings() {
                   <Txt v="h3" color={colors.primary}>
                     {money(b.total)}
                   </Txt>
-                  {cancelled ? <Badge label={t('cancelled')} color={colors.danger} bg={colors.dangerSoft} /> : null}
+                  {cancelled ? (
+                    <Badge label={t('cancelled')} color={colors.danger} bg={colors.dangerSoft} />
+                  ) : phase === 'live' ? (
+                    <Badge label={t('liveNow')} icon="radio-button-on" color={colors.success} bg={colors.successSoft} />
+                  ) : phase === 'ended' ? (
+                    <Badge label={t('gameEnded')} icon="flag" color={colors.textMuted} bg={colors.surfaceMuted} />
+                  ) : null}
                 </View>
               </Row>
-              {tab === 'upcoming' && !cancelled && (
+              {tab === 'upcoming' && !cancelled && phase === 'upcoming' && (
                 <Row gap={space.sm}>
                   <Button
                     title={t('inviteFriends')}
