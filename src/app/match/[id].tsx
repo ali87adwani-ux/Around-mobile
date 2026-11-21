@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Linking as RNLinking, ScrollView, Share, Switch, View } from 'react-native';
 import { WEB_URL } from '@/config';
 import { sideLevel, sidesFor } from '@/lib/teams';
+import { matchPhase, matchTimes, splitDuration } from '@/lib/matchPhase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LevelBadge } from '@/components/cards';
 import { Stepper } from '@/components/academy';
@@ -17,7 +18,7 @@ import { colors, radius, shadow, space } from '@/theme';
 
 export default function MatchScreen() {
   const { id, invite } = useLocalSearchParams<{ id: string; invite?: string }>();
-  const { t, l, lang, money, getMatch, getPitch, getPlayer, matchPlayers, isJoined, joinMatch, leaveMatch, errText, meId, matchCode, setMatchPrivate, inviteTeamToMatch, balanceTeams, setPlayerTeams } = useApp();
+  const { t, l, lang, money, getMatch, getPitch, getPlayer, matchPlayers, isJoined, joinMatch, leaveMatch, errText, meId, matchCode, setMatchPrivate, inviteTeamToMatch, balanceTeams, setPlayerTeams, switchMyTeam } = useApp();
   const [code, setCode] = useState<string | undefined>();
   const [inviteOpen, setInviteOpen] = useState(invite === '1');
   const [moving, setMoving] = useState<string | null>(null);
@@ -33,6 +34,12 @@ export default function MatchScreen() {
   const [scoreA, setScoreA] = useState(0);
   const [scoreB, setScoreB] = useState(0);
   const [noShows, setNoShows] = useState<string[]>([]);
+  // Re-render every 30 s so the countdown and the live / finished state stay current.
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const iv = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(iv);
+  }, []);
   const canInvite = !!match && (match.organizerId === meId || isJoined(match.id));
   useEffect(() => {
     if (!match || !canInvite || code) return;
@@ -53,8 +60,15 @@ export default function MatchScreen() {
   const ids = matchPlayers(match);
   const joined = isJoined(match.id);
   const left = match.maxPlayers - ids.length;
-  const nowH = new Date().getHours() + new Date().getMinutes() / 60;
-  const isPast = match.dayOffset < 0 || (match.dayOffset === 0 && match.hour + match.duration <= nowH);
+  const phase = matchPhase(match, now);
+  const { start, end } = matchTimes(match);
+  const isPast = phase === 'ended';
+  const upcoming = phase === 'upcoming';
+  const span = (ms: number) => {
+    const { d, h, m } = splitDuration(ms);
+    if (lang === 'ar') return [d && `${d} يوم`, h && `${h} ساعة`, (m || (!d && !h)) && `${m} دقيقة`].filter(Boolean).join(' و ');
+    return [d && `${d}d`, h && `${h}h`, (m || (!d && !h)) && `${m}m`].filter(Boolean).join(' ');
+  };
   const result = eng.getResult(match.id);
   const mvp = eng.mvpOf(match.id);
   const myVote = result?.votes[meId];
@@ -95,7 +109,7 @@ export default function MatchScreen() {
     const p = getPlayer(pid);
     const isMe = pid === meId;
     return (
-      <Tap onPress={() => (isOrganizer && !isPast ? setMoving(pid) : !isMe && router.push(`/player/${pid}`))} style={{ alignItems: 'center', gap: 4, width: 64 }}>
+      <Tap onPress={() => (upcoming && (isOrganizer || (isMe && joined)) ? setMoving(pid) : !isMe && router.push(`/player/${pid}`))} style={{ alignItems: 'center', gap: 4, width: 64 }}>
         <View>
           <Avatar name={l(p.name)} color={isMe ? colors.accentDark : p.color} uri={p.avatarUrl} size={44} ring />
           <View style={{ position: 'absolute', bottom: -4, alignSelf: 'center', backgroundColor: '#0D1B33', borderRadius: 6, paddingHorizontal: 4 }}>
@@ -156,6 +170,40 @@ export default function MatchScreen() {
           </View>
         </Card>
 
+        {/* Game status: countdown → live → full time */}
+        <Card
+          flat
+          style={{
+            gap: 8,
+            backgroundColor: phase === 'live' ? colors.successSoft : phase === 'ended' ? colors.surfaceMuted : colors.primarySoft,
+          }}
+        >
+          <Row gap={10}>
+            <Ionicons
+              name={phase === 'live' ? 'radio-button-on' : phase === 'ended' ? 'flag' : 'time-outline'}
+              size={22}
+              color={phase === 'live' ? colors.success : phase === 'ended' ? colors.textMuted : colors.primary}
+            />
+            <View style={{ flex: 1 }}>
+              <Txt v="bodyStrong" color={phase === 'live' ? colors.success : phase === 'ended' ? colors.text : colors.primary}>
+                {phase === 'upcoming' ? t('kickoffIn', { time: span(start - now) }) : phase === 'live' ? t('liveNowLong') : t('gameEndedLong')}
+              </Txt>
+              <Txt v="caption" color={colors.textMuted}>
+                {phase === 'upcoming'
+                  ? t(joined ? 'statusUpcomingJoined' : 'statusUpcoming')
+                  : phase === 'live'
+                    ? t('timeLeft', { time: span(end - now) })
+                    : result
+                      ? t('resultRecorded')
+                      : isOrganizer
+                        ? t('recordResultPrompt')
+                        : t('awaitingResult')}
+              </Txt>
+            </View>
+          </Row>
+          {phase === 'live' && <Progress value={(now - start) / (end - start)} height={6} color={colors.success} />}
+        </Card>
+
         {/* Lineup on a pitch */}
         <View style={{ gap: space.md }}>
           <Txt v="h2">{t('lineup')}</Txt>
@@ -178,7 +226,7 @@ export default function MatchScreen() {
         </View>
 
         {/* Organiser: split the sides */}
-        {isOrganizer && !isPast && (
+        {isOrganizer && upcoming && (
           <Card style={{ gap: space.md }}>
             <Row gap={space.sm}>
               <Ionicons name="git-compare-outline" size={20} color={colors.primary} />
@@ -226,7 +274,7 @@ export default function MatchScreen() {
         )}
 
         {/* Invite friends */}
-        {canInvite && !isPast && (
+        {canInvite && upcoming && (
           <Card style={{ gap: space.md }} onPress={() => setInviteOpen(true)}>
             <Row gap={space.sm}>
               <Ionicons name="people" size={20} color={colors.primary} />
@@ -329,7 +377,7 @@ export default function MatchScreen() {
         </Card>
       </ScrollView>
 
-      {!isPast && (
+      {upcoming && (
       <View style={[{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.card, padding: space.lg, paddingBottom: insets.bottom + space.md, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl }, shadow]}>
         {!joined && left <= 0 ? (
           myWaitPos > 0 ? (
@@ -478,7 +526,21 @@ export default function MatchScreen() {
       </Sheet>
 
       <Sheet visible={!!moving} onClose={() => setMoving(null)} title={moving ? (moving === meId ? t('you') : l(getPlayer(moving).name)) : undefined}>
-        {moving && (
+        {moving && !isOrganizer && moving === meId && (
+          <View style={{ gap: space.sm }}>
+            <Txt v="caption" color={colors.textMuted}>{t('switchSideHint')}</Txt>
+            <Button
+              title={t(teamA.includes(meId) ? 'switchToB' : 'switchToA')}
+              icon="swap-horizontal"
+              onPress={async () => {
+                setMoving(null);
+                const r = await switchMyTeam(match.id, { teamA, teamB });
+                toast(r.ok ? t('switchedSide') : errText(r.error), r.ok ? 'success' : 'error');
+              }}
+            />
+          </View>
+        )}
+        {moving && isOrganizer && (
           <View style={{ gap: space.sm }}>
             <Txt v="caption" color={colors.textMuted}>{t('movePlayerHint')}</Txt>
             <Row gap={space.sm}>

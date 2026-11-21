@@ -72,6 +72,8 @@ export interface Match {
   playerIds: string[];
   organizerId: string;
   createdByMe?: boolean;
+  /** Kick-off time (ms since epoch) when known from the server. */
+  startsAt?: number;
   /** Private games are only visible to their players and people with the invite code. */
   isPrivate?: boolean;
   inviteCode?: string;

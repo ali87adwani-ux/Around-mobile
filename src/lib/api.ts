@@ -91,6 +91,7 @@ export async function fetchMatches(): Promise<{ matches: Match[]; playerIds: str
       maxPlayers: r.max_players,
       playerIds: players,
       organizerId: r.organizer_id ?? '',
+      startsAt: Date.parse(r.starts_at),
       isPrivate: !!r.is_private,
       inviteCode: r.invite_code ?? undefined,
       teams: Object.fromEntries((r.match_players ?? []).filter((p: { team?: string }) => p.team).map((p: { user_id: string; team: 'A' | 'B' }) => [p.user_id, p.team])),
@@ -259,6 +260,12 @@ export async function setMatchPrivate(id: string, isPrivate: boolean) {
   const { data, error } = await db().rpc('set_match_private', { p_match: id, p_private: isPrivate });
   if (error) throw error;
   return data as string;
+}
+
+export async function switchMyTeam(matchId: string) {
+  const { data, error } = await db().rpc('switch_my_team', { p_match: matchId });
+  if (error) throw error;
+  return data as 'A' | 'B';
 }
 
 export async function joinMatchByCode(code: string) {

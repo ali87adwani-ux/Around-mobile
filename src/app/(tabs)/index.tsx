@@ -13,6 +13,7 @@ import { Avatar, Card, HScroll, EmptyState, IconButton, PitchArt, Row, SectionHe
 import { dateFromOffset, formatDay, formatHour, fromISODate, offsetOf } from '@/i18n/format';
 import type { StringKey } from '@/i18n/strings';
 import { useApp } from '@/store/AppStore';
+import { matchPhase } from '@/lib/matchPhase';
 import { useNotifications } from '@/store/notifications';
 import { colors, fonts, radius, space } from '@/theme';
 
@@ -47,7 +48,7 @@ export default function Home() {
       });
     }
     for (const m of allMatches) {
-      if (!isJoined(m.id) || m.dayOffset < 0) continue;
+      if (!isJoined(m.id) || matchPhase(m) === 'ended') continue;
       const p = getPitch(m.pitchId);
       items.push({
         key: m.id,
@@ -61,7 +62,7 @@ export default function Home() {
     return items.sort((a, b) => a.when - b.when);
   }, [myBookings, allMatches, lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const nearby = allMatches.filter((m) => m.dayOffset >= 0 && !isJoined(m.id)).slice(0, 5);
+  const nearby = allMatches.filter((m) => matchPhase(m) === 'upcoming' && !isJoined(m.id) && !m.isPrivate).slice(0, 5);
   const topPitches = [...pitches].sort((a, b) => b.rating - a.rating).slice(0, 4);
   const live = tournaments.find((x) => x.status === 'live');
 

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { matchPhase } from '@/lib/matchPhase';
 import { router } from 'expo-router';
 import React from 'react';
 import { View } from 'react-native';
@@ -83,6 +84,7 @@ export function MatchCard({ match, compact }: { match: Match; compact?: boolean 
   const ids = matchPlayers(match);
   const left = match.maxPlayers - ids.length;
   const joined = isJoined(match.id);
+  const phase = matchPhase(match);
   const day = formatDay(dateFromOffset(match.dayOffset), lang, { today: t('today'), tomorrow: t('tomorrow') });
   return (
     <Card onPress={() => router.push(`/match/${match.id}`)} style={{ width: compact ? 280 : undefined, gap: space.md }}>
@@ -109,6 +111,8 @@ export function MatchCard({ match, compact }: { match: Match; compact?: boolean 
             <Badge label={`${match.format}×${match.format}`} icon="football-outline" />
             <LevelBadge level={match.level} />
             {match.isPrivate && <Ionicons name="lock-closed" size={14} color={colors.warning} />}
+            {phase === 'live' && <Badge label={t('liveNow')} icon="radio-button-on" color={colors.success} bg={colors.successSoft} />}
+            {phase === 'ended' && <Badge label={t('gameEnded')} icon="flag" color={colors.textMuted} bg={colors.surfaceMuted} />}
           </Row>
         </View>
       </Row>

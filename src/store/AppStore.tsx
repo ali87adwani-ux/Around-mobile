@@ -24,6 +24,7 @@ import { registerForPush, unregisterPush } from '@/lib/push';
 import { currentLocation, distanceKm, type Coords } from '@/lib/location';
 import * as api from '@/lib/api';
 import { balanceLocal } from '@/lib/teams';
+import { matchPhase } from '@/lib/matchPhase';
 import type { OwnerSlot } from '@/lib/api';
 import { backendEnabled, supabase } from '@/lib/supabase';
 
@@ -275,6 +276,8 @@ interface Ctx {
   inviteTeamToMatch: (matchId: string, teamId: string) => Promise<Result>;
   balanceTeams: (matchId: string, shuffle: boolean) => Promise<Result>;
   setPlayerTeams: (matchId: string, sides: Record<string, 'A' | 'B' | null>) => Promise<Result>;
+  /** A player moves themselves to the other side (if it has room). */
+  switchMyTeam: (matchId: string, sides: { teamA: (string | undefined)[]; teamB: (string | undefined)[] }) => Promise<Result>;
   joinMatch: (id: string) => Promise<Result>;
   leaveMatch: (id: string) => Promise<Result>;
   registerTeam: (tournamentId: string, name: string) => Promise<Result>;
@@ -724,6 +727,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           await refresh();
           return ok();
         }),
+      switchMyTeam: (matchId, sides) =>
+        guard(async () => {
+          if (!live) {
+            const m = allMatches.find((x) => x.id === matchId);
+            if (!m) return { ok: false, error: 'match_not_found' };
+            const a = sides.teamA.filter(Boolean) as string[];
+            const b = sides.teamB.filter(Boolean) as string[];
+            const target = a.includes(ME_ID) ? 'B' : 'A';
+            if ((target === 'A' ? a : b).length >= Math.ceil(m.maxPlayers / 2)) return { ok: false, error: 'side_full' };
+            const teams: Record<string, 'A' | 'B'> = {};
+            a.forEach((id) => (teams[id] = 'A'));
+            b.forEach((id) => (teams[id] = 'B'));
+            teams[ME_ID] = target;
+            if (m.createdByMe) dispatch({ type: 'patchMatch', id: matchId, patch: { teams } });
+            return ok(target);
+          }
+          const side = await api.switchMyTeam(matchId);
+          await refresh();
+          return ok(side);
+        }),
       setPlayerTeams: (matchId, sides) =>
         guard(async () => {
           if (!live) {
@@ -938,7 +961,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       canReview: (pitchId) => {
         const now = Date.now();
         const played = myBookings.some((b) => b.pitchId === pitchId && b.status === 'confirmed' && (!live || new Date(`${b.dateISO}T${String(Math.floor(b.hour)).padStart(2, '0')}:00:00+03:00`).getTime() < now));
-        const playedMatch = allMatches.some((m) => m.pitchId === pitchId && m.dayOffset < 0 && m.playerIds.includes(meId));
+        const playedMatch = allMatches.some((m) => m.pitchId === pitchId && matchPhase(m) === 'ended' && m.playerIds.includes(meId));
         return played || playedMatch;
       },
       addReview: (pitchId, rating, comment) =>

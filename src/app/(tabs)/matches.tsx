@@ -8,6 +8,7 @@ import { Chip, EmptyState, HScroll, IconButton, Row, Segmented, Tap, Txt, useDir
 import type { Level, PitchSize } from '@/data/types';
 import { dateFromOffset, formatDay } from '@/i18n/format';
 import { useApp } from '@/store/AppStore';
+import { matchPhase, matchTimes } from '@/lib/matchPhase';
 import { colors, radius, shadow, space } from '@/theme';
 
 export default function Matches() {
@@ -19,11 +20,12 @@ export default function Matches() {
   const [level, setLevel] = useState<Level | null>(null);
   const [size, setSize] = useState<PitchSize | null>(null);
 
-  const past = useMemo(() => allMatches.filter((m) => m.dayOffset < 0 && isJoined(m.id)).sort((a, b) => b.dayOffset - a.dayOffset), [allMatches, isJoined]);
+  const past = useMemo(() => allMatches.filter((m) => matchPhase(m) === 'ended' && isJoined(m.id)).sort((a, b) => matchTimes(b).start - matchTimes(a).start), [allMatches, isJoined]);
   const list = useMemo(() => {
     return allMatches
-      .filter((m) => m.dayOffset >= 0)
-      .filter((m) => (tab === 'mine' ? isJoined(m.id) : true))
+      .filter((m) => matchPhase(m) !== 'ended')
+      // Discover only shows games you can still join; your own running game stays under "My games".
+      .filter((m) => (tab === 'mine' ? isJoined(m.id) : matchPhase(m) === 'upcoming' && (!m.isPrivate || isJoined(m.id))))
       .filter((m) => (day == null ? true : m.dayOffset === day))
       .filter((m) => (level ? m.level === level : true))
       .filter((m) => (size ? m.format === size : true))

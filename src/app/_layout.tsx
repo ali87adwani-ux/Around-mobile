@@ -1,7 +1,8 @@
 import { IBMPlexSansArabic_400Regular, IBMPlexSansArabic_500Medium, IBMPlexSansArabic_600SemiBold, IBMPlexSansArabic_700Bold, useFonts } from '@expo-google-fonts/ibm-plex-sans-arabic';
-import { SplashScreen, Stack } from 'expo-router';
+import * as Linking from 'expo-linking';
+import { router, SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { I18nManager, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastProvider } from '@/components/overlays';
@@ -22,6 +23,9 @@ if (Platform.OS !== 'web') {
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+// On the web, remember the address the page was opened with before any redirect to sign-in.
+const FIRST_WEB_URL = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.href : null;
+
 function RootNavigator() {
   const { ready: storeReady, onboarded, themeName } = useApp();
   const [fontsLoaded] = useFonts({ IBMPlexSansArabic_400Regular, IBMPlexSansArabic_500Medium, IBMPlexSansArabic_600SemiBold, IBMPlexSansArabic_700Bold });
@@ -30,6 +34,31 @@ function RootNavigator() {
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {});
   }, [ready]);
+
+  // An invite link (game, tournament team or staff code) opened before signing up is kept
+  // and opened right after the new user finishes signing in.
+  const pending = useRef<string | null>(null);
+  const captured = useRef(false);
+  useEffect(() => {
+    if (!ready || captured.current) return;
+    captured.current = true;
+    if (onboarded) return;
+    (FIRST_WEB_URL ? Promise.resolve(FIRST_WEB_URL) : Linking.getInitialURL())
+      .then((url) => {
+        if (!url) return;
+        const { path, queryParams } = Linking.parse(url);
+        const p = (path ?? '').replace(/^\/+/, '');
+        const code = typeof queryParams?.code === 'string' ? queryParams.code : '';
+        if (/^(match|tournament|staff)\/join$/.test(p) && code) pending.current = `/${p}?code=${encodeURIComponent(code)}`;
+      })
+      .catch(() => {});
+  }, [ready, onboarded]);
+  useEffect(() => {
+    if (!ready || !onboarded || !pending.current) return;
+    const to = pending.current;
+    pending.current = null;
+    setTimeout(() => router.push(to as never), 400);
+  }, [ready, onboarded]);
 
   if (!ready) return null;
 

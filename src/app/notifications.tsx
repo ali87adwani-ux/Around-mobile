@@ -52,6 +52,9 @@ const ICONS: Record<string, IconName> = {
   academy_fee_paid: 'cash',
   staff_joined: 'id-card',
   match_invite: 'mail-open',
+  match_soon: 'alarm',
+  match_ended: 'flag',
+  player_switched: 'swap-horizontal',
 };
 
 function ago(at: number, lang: 'ar' | 'en') {
