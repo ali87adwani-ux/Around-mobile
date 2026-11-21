@@ -134,17 +134,35 @@ export default function Onboarding() {
               </Txt>
             </View>
             {/* Player kicking, behind the wordmark */}
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <View style={{ width: artW, alignItems: 'center' }}>
-                <View style={{ position: 'absolute', top: artH * 0.02, left: (artW - artH * 0.98) / 2, width: artH * 0.98, height: artH * 0.98, borderRadius: artH, backgroundColor: themeName === 'dark' ? '#DCEBFA' : '#7CC0F5', opacity: themeName === 'dark' ? 0.92 : 0.16 }} />
-                <Image source={require('../../assets/brand/art/kicker.png')} style={{ width: artW, height: artH }} resizeMode="contain" accessibilityIgnoresInvertColors />
-                <Image
-                  source={themeName === 'dark' ? require('../../assets/brand/lockup-white.png') : require('../../assets/brand/lockup-navy.png')}
-                  style={{ width: 160, height: 97, marginTop: -22 }}
-                  resizeMode="contain"
-                  accessibilityLabel={t('appName')}
-                />
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.lg }}>
+              {/* Hero card: brand gradient + pitch lines; the player breaks out over the top edge */}
+              <View style={{ width: artW, height: artH * 0.62 + artH * 0.42, justifyContent: 'flex-end' }}>
+                <LinearGradient
+                  colors={themeName === 'dark' ? ['#1E4E99', '#0B2E6F'] : ['#CFE6FB', '#EEF6FE']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ height: artH * 0.62, borderRadius: radius.xl, overflow: 'hidden', borderWidth: 1, borderColor: themeName === 'dark' ? 'rgba(124,192,245,0.25)' : 'rgba(11,46,111,0.06)' }}
+                >
+                  <View style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, marginLeft: -1, backgroundColor: themeName === 'dark' ? 'rgba(124,192,245,0.22)' : 'rgba(11,46,111,0.08)' }} />
+                  <View style={{ position: 'absolute', left: artW / 2 - artH * 0.2, top: artH * 0.31 - artH * 0.2, width: artH * 0.4, height: artH * 0.4, borderRadius: artH, borderWidth: 2, borderColor: themeName === 'dark' ? 'rgba(124,192,245,0.22)' : 'rgba(11,46,111,0.08)' }} />
+                  <View style={{ position: 'absolute', left: -artH * 0.12, top: artH * 0.31 - artH * 0.16, width: artH * 0.24, height: artH * 0.32, borderRadius: radius.md, borderWidth: 2, borderColor: themeName === 'dark' ? 'rgba(124,192,245,0.18)' : 'rgba(11,46,111,0.06)' }} />
+                  <View style={{ position: 'absolute', right: -artH * 0.12, top: artH * 0.31 - artH * 0.16, width: artH * 0.24, height: artH * 0.32, borderRadius: radius.md, borderWidth: 2, borderColor: themeName === 'dark' ? 'rgba(124,192,245,0.18)' : 'rgba(11,46,111,0.06)' }} />
+                </LinearGradient>
+                <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: artH * 0.03, width: artW, alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <Image
+                    source={require('../../assets/brand/art/kicker-sticker.png')}
+                    style={{ width: artW * 0.96, height: artW * 0.96 * (742 / 1028) }}
+                    resizeMode="contain"
+                    accessibilityIgnoresInvertColors
+                  />
+                </View>
               </View>
+              <Image
+                source={themeName === 'dark' ? require('../../assets/brand/lockup-white.png') : require('../../assets/brand/lockup-navy.png')}
+                style={{ width: 150, height: 91 }}
+                resizeMode="contain"
+                accessibilityLabel={t('appName')}
+              />
             </View>
             {authError && (
               <Row gap={6}>
