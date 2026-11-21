@@ -39,7 +39,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "build:preview": "SINGLE_BUNDLE=1 expo export --platform web --output-dir dist-preview && node scripts/build-preview.js dist-preview preview/around.html"
+    "build:preview": "EXPO_PUBLIC_DEMO=1 SINGLE_BUNDLE=1 expo export --platform web --output-dir dist-preview && node scripts/build-preview.js dist-preview preview/around.html"
   },
   "private": true
 }

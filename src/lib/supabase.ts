@@ -2,15 +2,17 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
+import { SUPABASE_KEY, SUPABASE_URL } from '@/config';
 
-// Set these in .env (see .env.example). Without them the app runs in demo mode with local data.
-const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const key = process.env.EXPO_PUBLIC_SUPABASE_KEY;
+// .env values win over the defaults in src/config. EXPO_PUBLIC_DEMO=1 forces demo mode (used by the web preview).
+const demo = process.env.EXPO_PUBLIC_DEMO === '1';
+const url = process.env.EXPO_PUBLIC_SUPABASE_URL || SUPABASE_URL;
+const key = process.env.EXPO_PUBLIC_SUPABASE_KEY || SUPABASE_KEY;
 
-export const backendEnabled = !!(url && key);
+export const backendEnabled = !demo && !!(url && key);
 
 export const supabase: SupabaseClient | null = backendEnabled
-  ? createClient(url!, key!, {
+  ? createClient(url, key, {
       auth: {
         storage: AsyncStorage,
         autoRefreshToken: true,
